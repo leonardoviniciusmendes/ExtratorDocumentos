@@ -49,6 +49,7 @@ namespace ExtratorDocumentos.Application.Services.Extracao
         public string? Folha { get; set; }
         public string? Termo { get; set; }
         public decimal Confianca { get; set; }
+        public string? TextoExtraido { get; set; }
         public string DadosBrutosJson { get; set; } = "{}";
     }
 }

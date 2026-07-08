@@ -15,7 +15,8 @@ namespace ExtratorDocumentos.Application.Services.Extracao
             logradouro, numeroEndereco, complemento, bairro,
             cidade, estado, cep, emissorDocumento, numeroCliente, numeroInstalacao,
             mesReferencia, dataVencimento,
-            matriculaCertidao, livro, folha, termo, confianca.
+            matriculaCertidao, livro, folha, termo, textoExtraido, confianca.
+            textoExtraido deve conter a transcricao integral legivel do documento.
             Para CNH, numeroCnh e o numero de registro. Nao confunda com CPF,
             numero do formulario, espelho ou RENACH. Extraia frente e verso quando existirem.
             Para comprovantes de endereco, separe o endereco completo nos campos estruturados.

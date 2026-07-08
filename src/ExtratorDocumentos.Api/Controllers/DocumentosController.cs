@@ -22,8 +22,9 @@ public class DocumentosController : ControllerBase
         await using var stream = request.Arquivo.OpenReadStream();
         try
         {
-            var documento = await service.CriarAsync(request.Cpf, request.TipoParentesco,
-                request.Tipo, request.Observacoes, request.Arquivo.FileName,
+            var documento = await service.CriarAsync(request.Cpf, request.CpfDependente,
+                request.Cnpj, request.Papel, request.TipoParentesco, request.Tipo,
+                request.Observacoes, request.Arquivo.FileName,
                 request.Arquivo.ContentType, stream, cancellationToken);
             return CreatedAtAction(nameof(GetById), new { id = documento.Id }, new { documento.Id });
         }
@@ -161,6 +162,9 @@ public class DocumentosController : ControllerBase
 public sealed class UploadDocumentoRequest
 {
     public string Cpf { get; set; } = string.Empty;
+    public string? CpfDependente { get; set; }
+    public string? Cnpj { get; set; }
+    public PapelDocumento Papel { get; set; } = PapelDocumento.Titular;
     public TipoParentesco TipoParentesco { get; set; } = TipoParentesco.Titular;
     public TipoDocumento Tipo { get; set; }
     public string? Observacoes { get; set; }

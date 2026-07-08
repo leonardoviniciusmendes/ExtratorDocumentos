@@ -18,14 +18,23 @@ namespace ExtratorDocumentos.Application.Services
             _storage = storage;
         }
 
-        public async Task<Documento> CriarAsync(string cpf, TipoParentesco tipoParentesco,
+        public async Task<Documento> CriarAsync(string cpf, string? cpfDependente,
+            string? cnpj, PapelDocumento papel, TipoParentesco tipoParentesco,
             TipoDocumento tipo, string? observacoes,
             string nomeArquivo, string tipoConteudo, Stream arquivo, CancellationToken cancellationToken)
         {
             var cpfNormalizado = NormalizarCpf(cpf);
+            if (!Enum.IsDefined(papel))
+                throw new ArgumentException("Papel deve ser titular, dependente ou empresa.",
+                    nameof(papel));
             var documento = new Documento
             {
                 Cpf = cpfNormalizado,
+                CpfDependente = papel == PapelDocumento.Dependente
+                    ? NormalizarDocumento(cpfDependente, 11, nameof(cpfDependente)) : null,
+                Cnpj = papel == PapelDocumento.Empresa
+                    ? NormalizarDocumento(cnpj, 14, nameof(cnpj)) : null,
+                Papel = papel,
                 TipoParentesco = tipoParentesco,
                 Tipo = tipo,
                 Observacoes = observacoes
@@ -123,8 +132,8 @@ namespace ExtratorDocumentos.Application.Services
             await using var memoria = new MemoryStream();
             await arquivo.CopyToAsync(memoria, cancellationToken);
             var hash = Convert.ToHexString(SHA256.HashData(memoria.ToArray())).ToLowerInvariant();
-            var extensao = Path.GetExtension(Path.GetFileName(nomeArquivo));
-            var chave = $"{documento.Cpf}/{documento.Id:N}/v{documento.VersaoAtual}{extensao}";
+            var chave = StorageKeyBuilder.CriarChaveOriginal(
+                documento, documento.VersaoAtual, nomeArquivo);
             memoria.Position = 0;
             await _storage.SalvarAsync(chave, memoria, cancellationToken);
             var versao = new DocumentoVersao { Versao = documento.VersaoAtual, NomeArquivo = Path.GetFileName(nomeArquivo),
@@ -135,7 +144,8 @@ namespace ExtratorDocumentos.Application.Services
         }
 
         private static DocumentoResponse ToResponse(Documento x) =>
-            new(x.Id, x.Cpf, x.TipoParentesco, x.Tipo, x.Status, x.Observacoes, x.VersaoAtual,
+            new(x.Id, x.Cpf, x.CpfDependente, x.Cnpj, x.Papel,
+                x.TipoParentesco, x.Tipo, x.Status, x.Observacoes, x.VersaoAtual,
                 x.Excluido, x.CriadoEm, x.AtualizadoEm, x.StatusExtracao,
                 x.ErroExtracao, x.ExtraidoEm);
 
@@ -144,6 +154,15 @@ namespace ExtratorDocumentos.Application.Services
             var normalizado = new string((cpf ?? string.Empty).Where(char.IsDigit).ToArray());
             if (normalizado.Length != 11)
                 throw new ArgumentException("CPF deve conter 11 digitos.", nameof(cpf));
+            return normalizado;
+        }
+
+        private static string NormalizarDocumento(string? valor, int tamanho, string campo)
+        {
+            var normalizado = new string((valor ?? string.Empty).Where(char.IsDigit).ToArray());
+            if (normalizado.Length != tamanho)
+                throw new ArgumentException(
+                    $"{campo} deve conter {tamanho} digitos.", campo);
             return normalizado;
         }
     }

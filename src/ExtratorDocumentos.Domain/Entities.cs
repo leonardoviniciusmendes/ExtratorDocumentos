@@ -26,10 +26,20 @@ namespace ExtratorDocumentos.Domain
         Socio = 5, RepresentanteLegal = 6, Outros = 99
     }
 
+    public enum PapelDocumento
+    {
+        Titular = 0,
+        Dependente = 1,
+        Empresa = 2
+    }
+
     public class Documento
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public string Cpf { get; set; } = string.Empty;
+        public string? CpfDependente { get; set; }
+        public string? Cnpj { get; set; }
+        public PapelDocumento Papel { get; set; } = PapelDocumento.Titular;
         public TipoParentesco TipoParentesco { get; set; } = TipoParentesco.Titular;
         public TipoDocumento Tipo { get; set; }
         public StatusDocumento Status { get; set; } = StatusDocumento.Pendente;

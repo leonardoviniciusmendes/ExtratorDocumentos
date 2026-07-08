@@ -19,7 +19,11 @@ namespace ExtratorDocumentos.Infrastructure.Data
             {
                 b.HasKey(x => x.Id);
                 b.Property(x => x.Cpf).IsRequired().HasMaxLength(11);
+                b.Property(x => x.CpfDependente).HasMaxLength(11);
+                b.Property(x => x.Cnpj).HasMaxLength(14);
                 b.HasIndex(x => x.Cpf);
+                b.HasIndex(x => x.CpfDependente);
+                b.HasIndex(x => x.Cnpj);
                 b.HasIndex(x => x.Status);
                 b.HasIndex(x => x.Excluido);
                 b.Property(x => x.Observacoes).HasMaxLength(2000);

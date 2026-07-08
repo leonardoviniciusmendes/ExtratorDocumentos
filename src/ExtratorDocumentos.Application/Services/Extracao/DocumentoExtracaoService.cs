@@ -4,6 +4,7 @@ using ExtratorDocumentos.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using System.Text;
 
 namespace ExtratorDocumentos.Application.Services.Extracao
 {
@@ -45,6 +46,8 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                 var resultado = await provider.ExtrairAsync(documento.Tipo, versao.NomeArquivo,
                     versao.TipoConteudo, stream, cancellationToken) ??
                     throw new InvalidOperationException("O provedor nao retornou dados.");
+                await SalvarArtefatosAsync(
+                    documento, versao, resultado, cancellationToken);
 
                 if (EhDocumentoIdentificacao(documento.Tipo))
                 {
@@ -145,5 +148,42 @@ namespace ExtratorDocumentos.Application.Services.Extracao
 
         private static string? SoDigitos(string? valor) =>
             string.IsNullOrWhiteSpace(valor) ? null : new string(valor.Where(char.IsDigit).ToArray());
+
+        private async Task SalvarArtefatosAsync(Documento documento, DocumentoVersao versao,
+            ExtracaoDocumentoResult resultado, CancellationToken cancellationToken)
+        {
+            if (!StorageKeyBuilder.EhChaveEstruturada(versao.ChaveStorage))
+            {
+                var chaveAnterior = versao.ChaveStorage;
+                var chaveNova = StorageKeyBuilder.CriarChaveOriginal(
+                    documento, versao.Versao, versao.NomeArquivo);
+                await using var originalLegado = await _storage.AbrirLeituraAsync(
+                    chaveAnterior, cancellationToken);
+                await _storage.SalvarAsync(chaveNova, originalLegado, cancellationToken);
+                versao.ChaveStorage = chaveNova;
+            }
+
+            var chaveProcessado = StorageKeyBuilder.CriarChaveDerivada(
+                versao.ChaveStorage, "processado", Path.GetExtension(versao.NomeArquivo));
+            await using (var original = await _storage.AbrirLeituraAsync(
+                versao.ChaveStorage, cancellationToken))
+            {
+                await _storage.SalvarAsync(chaveProcessado, original, cancellationToken);
+            }
+
+            var chaveJson = StorageKeyBuilder.CriarChaveDerivada(
+                versao.ChaveStorage, "texto-extraido", ".json");
+            await using (var json = new MemoryStream(
+                Encoding.UTF8.GetBytes(resultado.DadosBrutosJson)))
+            {
+                await _storage.SalvarAsync(chaveJson, json, cancellationToken);
+            }
+
+            var chaveTexto = StorageKeyBuilder.CriarChaveDerivada(
+                versao.ChaveStorage, "texto-extraido", ".txt");
+            await using var texto = new MemoryStream(
+                Encoding.UTF8.GetBytes(resultado.TextoExtraido ?? string.Empty));
+            await _storage.SalvarAsync(chaveTexto, texto, cancellationToken);
+        }
     }
 }
