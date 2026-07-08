@@ -1,0 +1,13 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY src/ExtratorDocumentos.Api ./src/ExtratorDocumentos.Api
+COPY src/ExtratorDocumentos.Application ./src/ExtratorDocumentos.Application
+COPY src/ExtratorDocumentos.Infrastructure ./src/ExtratorDocumentos.Infrastructure
+COPY src/ExtratorDocumentos.Domain ./src/ExtratorDocumentos.Domain
+RUN dotnet restore src/ExtratorDocumentos.Api/ExtratorDocumentos.Api.csproj
+RUN dotnet publish src/ExtratorDocumentos.Api/ExtratorDocumentos.Api.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "ExtratorDocumentos.Api.dll"]

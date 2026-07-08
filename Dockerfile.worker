@@ -1,0 +1,13 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY src/ExtratorDocumentos.Worker ./src/ExtratorDocumentos.Worker
+COPY src/ExtratorDocumentos.Application ./src/ExtratorDocumentos.Application
+COPY src/ExtratorDocumentos.Infrastructure ./src/ExtratorDocumentos.Infrastructure
+COPY src/ExtratorDocumentos.Domain ./src/ExtratorDocumentos.Domain
+RUN dotnet restore src/ExtratorDocumentos.Worker/ExtratorDocumentos.Worker.csproj
+RUN dotnet publish src/ExtratorDocumentos.Worker/ExtratorDocumentos.Worker.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/runtime:9.0
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "ExtratorDocumentos.Worker.dll"]

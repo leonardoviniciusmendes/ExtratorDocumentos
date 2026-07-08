@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ExtratorDocumentos.Api/ExtratorDocumentos.Api.csproj" />
+  <Project Path="ExtratorDocumentos.Application/ExtratorDocumentos.Application.csproj" />
+  <Project Path="ExtratorDocumentos.Domain/ExtratorDocumentos.Domain.csproj" />
+  <Project Path="ExtratorDocumentos.Infrastructure/ExtratorDocumentos.Infrastructure.csproj" />
+  <Project Path="ExtratorDocumentos.Worker/ExtratorDocumentos.Worker.csproj" />
+</Solution>

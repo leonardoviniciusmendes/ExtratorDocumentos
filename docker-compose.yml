@@ -1,0 +1,48 @@
+name: extrator-documentos
+
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ligado01
+      MYSQL_DATABASE: extrator_documentos
+    ports:
+      - "3320:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      - db
+    ports:
+      - "5001:8080"
+    volumes:
+      - documentos-storage:/app/storage
+    environment:
+      - ConnectionStrings__Default=Server=db;Port=3306;Database=extrator_documentos;User=root;Password=ligado01;SslMode=None;AllowPublicKeyRetrieval=True;
+      - Storage__Local__BasePath=/app/storage
+      - DocumentExtraction__OpenAI__ApiKey=${OPENAI_API_KEY}
+      - DocumentExtraction__OpenRouter__ApiKey=${OPENROUTER_API_KEY}
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    depends_on:
+      - db
+    volumes:
+      - documentos-storage:/app/storage
+    environment:
+      - ConnectionStrings__Default=Server=db;Port=3306;Database=extrator_documentos;User=root;Password=ligado01;SslMode=None;AllowPublicKeyRetrieval=True;
+      - Storage__Local__BasePath=/app/storage
+      - DocumentExtraction__OpenAI__ApiKey=${OPENAI_API_KEY}
+      - DocumentExtraction__OpenRouter__ApiKey=${OPENROUTER_API_KEY}
+
+volumes:
+  documentos-storage:

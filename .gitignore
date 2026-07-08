@@ -1,0 +1,42 @@
+## Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+
+## Build
+bin/
+obj/
+
+## Rider
+.idea/
+
+## VSCode
+.vscode/
+
+## NuGet
+packages/
+
+## Logs
+*.log
+*.tmp
+*.temp
+
+## Local document storage
+storage/
+
+## Docker
+.docker-config/
+
+## Dotnet local
+.dotnet/
+
+## NuGet local
+.nuget/
+
+## Windows
+Thumbs.db
+Desktop.ini
+
+## ReSharper
+_ReSharper*/
