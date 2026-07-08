@@ -30,13 +30,21 @@ namespace ExtratorDocumentos.Application.Dtos.Documentos
         string? NumeroCnh, string? CategoriaCnh, DateTime? ValidadeCnh,
         DateTime? DataPrimeiraHabilitacao, DateTime? DataEmissao, string? LocalEmissao,
         string? NumeroRenach, string? ObservacoesCnh, string? Cnpj,
-        string? RazaoSocial, string? NomeFantasia, string? Endereco,
-        string? NomeTitularEndereco, string? Logradouro, string? NumeroEndereco,
-        string? Complemento, string? Bairro, string? Cidade, string? Estado, string? Cep,
+        string? RazaoSocial, string? NomeFantasia,
         string? EmissorDocumento, string? NumeroCliente, string? NumeroInstalacao,
         string? MesReferencia, DateTime? DataVencimento,
         string? MatriculaCertidao, string? Livro, string? Folha, string? Termo,
         decimal Confianca, string Provedor, DateTime CriadoEm);
+    public sealed record EnderecoExtraidoResponse(Guid Id, Guid DocumentoId,
+        Guid DocumentoVersaoId, string? Cpf, string? Cnpj, string? Cep,
+        string? Logradouro, string? Numero, string? Complemento, string? Bairro,
+        string? Cidade, string? Uf, string? FonteDocumento, DateTime CriadoEm);
+    public sealed record VinculoExtracaoResponse(string? Cpf, string? Cnpj,
+        Guid DocumentoId, Guid DocumentoVersaoId);
+    public sealed record DadosExtraidosResponse(
+        IdentificacaoExtraidaResponse? Identificacao,
+        IReadOnlyList<EnderecoExtraidoResponse> Enderecos,
+        VinculoExtracaoResponse? Vinculo);
     public sealed class AtualizarDocumentoRequest
     {
         public StatusDocumento? Status { get; set; }

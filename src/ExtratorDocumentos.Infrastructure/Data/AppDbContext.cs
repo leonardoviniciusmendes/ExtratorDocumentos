@@ -11,6 +11,7 @@ namespace ExtratorDocumentos.Infrastructure.Data
         public DbSet<DocumentoVersao> DocumentoVersoes { get; set; } = null!;
         public DbSet<DocumentoHistorico> DocumentoHistoricos { get; set; } = null!;
         public DbSet<IdentificacaoExtraida> IdentificacoesExtraidas { get; set; } = null!;
+        public DbSet<EnderecoExtraido> EnderecosExtraidos { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -42,12 +43,29 @@ namespace ExtratorDocumentos.Infrastructure.Data
                 b.HasIndex(x => x.DocumentoVersaoId);
                 b.HasIndex(x => x.Cpf);
                 b.HasIndex(x => x.Cnpj);
-                b.HasIndex(x => x.Cep);
                 b.Property(x => x.Confianca).HasPrecision(5, 2);
                 b.Property(x => x.DadosBrutosJson).HasColumnType("longtext");
                 b.HasOne(x => x.Documento).WithOne(x => x.Identificacao)
                     .HasForeignKey<IdentificacaoExtraida>(x => x.DocumentoId);
                 b.HasOne(x => x.DocumentoVersao).WithMany().HasForeignKey(x => x.DocumentoVersaoId);
+            });
+
+            modelBuilder.Entity<EnderecoExtraido>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.HasIndex(x => x.Cpf);
+                b.HasIndex(x => x.Cnpj);
+                b.HasIndex(x => x.DocumentoId);
+                b.HasIndex(x => x.DocumentoVersaoId);
+                b.Property(x => x.Cpf).HasMaxLength(11);
+                b.Property(x => x.Cnpj).HasMaxLength(14);
+                b.Property(x => x.Cep).HasMaxLength(8);
+                b.Property(x => x.Uf).HasMaxLength(2);
+                b.Property(x => x.FonteDocumento).HasMaxLength(100);
+                b.HasOne(x => x.Documento).WithMany(x => x.Enderecos)
+                    .HasForeignKey(x => x.DocumentoId);
+                b.HasOne(x => x.DocumentoVersao).WithMany()
+                    .HasForeignKey(x => x.DocumentoVersaoId);
             });
 
             modelBuilder.Entity<DocumentoHistorico>(b =>

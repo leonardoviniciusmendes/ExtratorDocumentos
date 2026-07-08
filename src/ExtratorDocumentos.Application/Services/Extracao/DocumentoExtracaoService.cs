@@ -46,12 +46,30 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                     versao.TipoConteudo, stream, cancellationToken) ??
                     throw new InvalidOperationException("O provedor nao retornou dados.");
 
-                var identificacao = await _db.IdentificacoesExtraidas
-                    .FirstOrDefaultAsync(x => x.DocumentoId == documento.Id, cancellationToken);
-                identificacao ??= new IdentificacaoExtraida { DocumentoId = documento.Id };
-                Mapear(identificacao, versao.Id, provider.Nome, resultado);
-                if (_db.Entry(identificacao).State == EntityState.Detached)
-                    _db.IdentificacoesExtraidas.Add(identificacao);
+                if (EhDocumentoIdentificacao(documento.Tipo))
+                {
+                    var identificacao = await _db.IdentificacoesExtraidas
+                        .FirstOrDefaultAsync(x => x.DocumentoId == documento.Id, cancellationToken);
+                    identificacao ??= new IdentificacaoExtraida { DocumentoId = documento.Id };
+                    MapearIdentificacao(identificacao, versao.Id, provider.Nome, resultado);
+                    if (_db.Entry(identificacao).State == EntityState.Detached)
+                        _db.IdentificacoesExtraidas.Add(identificacao);
+                }
+
+                if (PossuiEndereco(resultado))
+                {
+                    var endereco = await _db.EnderecosExtraidos.FirstOrDefaultAsync(
+                        x => x.DocumentoId == documento.Id &&
+                             x.DocumentoVersaoId == versao.Id, cancellationToken);
+                    endereco ??= new EnderecoExtraido
+                    {
+                        DocumentoId = documento.Id,
+                        DocumentoVersaoId = versao.Id
+                    };
+                    MapearEndereco(endereco, documento.Tipo, resultado);
+                    if (_db.Entry(endereco).State == EntityState.Detached)
+                        _db.EnderecosExtraidos.Add(endereco);
+                }
 
                 documento.StatusExtracao = resultado.Confianca >= ConfiancaMinima
                     ? StatusExtracao.Processado : StatusExtracao.RevisaoManual;
@@ -76,7 +94,7 @@ namespace ExtratorDocumentos.Application.Services.Extracao
             }
         }
 
-        private static void Mapear(IdentificacaoExtraida x, Guid versaoId, string provedor,
+        private static void MapearIdentificacao(IdentificacaoExtraida x, Guid versaoId, string provedor,
             ExtracaoDocumentoResult r)
         {
             x.DocumentoVersaoId = versaoId; x.NomeCompleto = r.NomeCompleto; x.Cpf = SoDigitos(r.Cpf);
@@ -88,17 +106,42 @@ namespace ExtratorDocumentos.Application.Services.Extracao
             x.DataEmissao = r.DataEmissao; x.LocalEmissao = r.LocalEmissao;
             x.NumeroRenach = r.NumeroRenach; x.ObservacoesCnh = r.ObservacoesCnh;
             x.Cnpj = SoDigitos(r.Cnpj); x.RazaoSocial = r.RazaoSocial;
-            x.NomeFantasia = r.NomeFantasia; x.Endereco = r.Endereco;
-            x.NomeTitularEndereco = r.NomeTitularEndereco; x.Logradouro = r.Logradouro;
-            x.NumeroEndereco = r.NumeroEndereco; x.Complemento = r.Complemento;
-            x.Bairro = r.Bairro; x.Cidade = r.Cidade; x.Estado = r.Estado;
-            x.Cep = SoDigitos(r.Cep); x.EmissorDocumento = r.EmissorDocumento;
+            x.NomeFantasia = r.NomeFantasia; x.EmissorDocumento = r.EmissorDocumento;
             x.NumeroCliente = r.NumeroCliente; x.NumeroInstalacao = r.NumeroInstalacao;
             x.MesReferencia = r.MesReferencia; x.DataVencimento = r.DataVencimento;
             x.MatriculaCertidao = r.MatriculaCertidao; x.Livro = r.Livro; x.Folha = r.Folha;
             x.Termo = r.Termo; x.Confianca = Math.Clamp(r.Confianca, 0, 100);
             x.Provedor = provedor; x.DadosBrutosJson = r.DadosBrutosJson; x.CriadoEm = DateTime.UtcNow;
         }
+
+        private static void MapearEndereco(EnderecoExtraido x, TipoDocumento tipo,
+            ExtracaoDocumentoResult r)
+        {
+            x.Cpf = SoDigitos(r.Cpf);
+            x.Cnpj = SoDigitos(r.Cnpj);
+            x.Cep = SoDigitos(r.Cep);
+            x.Logradouro = r.Logradouro;
+            x.Numero = r.NumeroEndereco;
+            x.Complemento = r.Complemento;
+            x.Bairro = r.Bairro;
+            x.Cidade = r.Cidade;
+            x.Uf = r.Estado;
+            x.FonteDocumento = tipo.ToString();
+            x.CriadoEm = DateTime.UtcNow;
+        }
+
+        private static bool EhDocumentoIdentificacao(TipoDocumento tipo) =>
+            tipo is TipoDocumento.CNH or TipoDocumento.RG or TipoDocumento.CPF
+                or TipoDocumento.CartaoCNPJ;
+
+        private static bool PossuiEndereco(ExtracaoDocumentoResult r) =>
+            !string.IsNullOrWhiteSpace(r.Cep) ||
+            !string.IsNullOrWhiteSpace(r.Logradouro) ||
+            !string.IsNullOrWhiteSpace(r.NumeroEndereco) ||
+            !string.IsNullOrWhiteSpace(r.Complemento) ||
+            !string.IsNullOrWhiteSpace(r.Bairro) ||
+            !string.IsNullOrWhiteSpace(r.Cidade) ||
+            !string.IsNullOrWhiteSpace(r.Estado);
 
         private static string? SoDigitos(string? valor) =>
             string.IsNullOrWhiteSpace(valor) ? null : new string(valor.Where(char.IsDigit).ToArray());

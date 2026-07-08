@@ -32,8 +32,6 @@ namespace ExtratorDocumentos.Application.Services.Extracao
         public string? Cnpj { get; set; }
         public string? RazaoSocial { get; set; }
         public string? NomeFantasia { get; set; }
-        public string? Endereco { get; set; }
-        public string? NomeTitularEndereco { get; set; }
         public string? Logradouro { get; set; }
         public string? NumeroEndereco { get; set; }
         public string? Complemento { get; set; }

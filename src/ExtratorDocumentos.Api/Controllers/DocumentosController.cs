@@ -97,20 +97,37 @@ public class DocumentosController : ControllerBase
     public async Task<IActionResult> GetIdentificacao(Guid id, [FromServices] AppDbContext db,
         CancellationToken cancellationToken)
     {
-        var item = await db.IdentificacoesExtraidas.AsNoTracking()
+        var identificacao = await db.IdentificacoesExtraidas.AsNoTracking()
             .Where(x => x.DocumentoId == id)
             .Select(x => new IdentificacaoExtraidaResponse(x.Id, x.DocumentoId,
                 x.DocumentoVersaoId, x.NomeCompleto, x.Cpf, x.Rg, x.OrgaoEmissor,
                 x.UfEmissao, x.DataNascimento, x.Naturalidade, x.Nacionalidade,
                 x.NomeMae, x.NomePai, x.NumeroCnh, x.CategoriaCnh, x.ValidadeCnh,
                 x.DataPrimeiraHabilitacao, x.DataEmissao, x.LocalEmissao,
-                x.NumeroRenach, x.ObservacoesCnh, x.Cnpj, x.RazaoSocial, x.NomeFantasia, x.Endereco,
-                x.NomeTitularEndereco, x.Logradouro, x.NumeroEndereco, x.Complemento,
-                x.Bairro, x.Cidade, x.Estado, x.Cep, x.EmissorDocumento,
+                x.NumeroRenach, x.ObservacoesCnh, x.Cnpj, x.RazaoSocial, x.NomeFantasia,
+                x.EmissorDocumento,
                 x.NumeroCliente, x.NumeroInstalacao, x.MesReferencia, x.DataVencimento,
                 x.MatriculaCertidao, x.Livro, x.Folha, x.Termo, x.Confianca,
                 x.Provedor, x.CriadoEm)).FirstOrDefaultAsync(cancellationToken);
-        return item == null ? NotFound() : Ok(item);
+        var enderecos = await ConsultarEnderecos(
+            db, id, identificacao?.Cpf, identificacao?.Cnpj).ToListAsync(cancellationToken);
+        if (identificacao == null && enderecos.Count == 0) return NotFound();
+        var referencia = enderecos.FirstOrDefault();
+        var vinculo = identificacao != null
+            ? new VinculoExtracaoResponse(identificacao.Cpf, identificacao.Cnpj,
+                identificacao.DocumentoId, identificacao.DocumentoVersaoId)
+            : referencia == null ? null : new VinculoExtracaoResponse(referencia.Cpf,
+                referencia.Cnpj, referencia.DocumentoId, referencia.DocumentoVersaoId);
+        return Ok(new DadosExtraidosResponse(identificacao, enderecos, vinculo));
+    }
+
+    [HttpGet("{id}/enderecos")]
+    public async Task<IActionResult> GetEnderecos(Guid id, [FromServices] AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var enderecos = await ConsultarEnderecos(db, id, null, null)
+            .ToListAsync(cancellationToken);
+        return enderecos.Count == 0 ? NotFound() : Ok(enderecos);
     }
 
     [HttpPost("{id}/extrair-identificacao")]
@@ -128,6 +145,17 @@ public class DocumentosController : ControllerBase
         [FromQuery] string? usuario, [FromServices] DocumentoService service,
         CancellationToken cancellationToken) =>
         await service.ExcluirAsync(id, observacao, usuario, cancellationToken) ? NoContent() : NotFound();
+
+    private static IQueryable<EnderecoExtraidoResponse> ConsultarEnderecos(
+        AppDbContext db, Guid documentoId, string? cpf, string? cnpj) =>
+        db.EnderecosExtraidos.AsNoTracking()
+            .Where(x => x.DocumentoId == documentoId ||
+                (cpf != null && x.Cpf == cpf) ||
+                (cnpj != null && x.Cnpj == cnpj))
+            .OrderByDescending(x => x.CriadoEm)
+            .Select(x => new EnderecoExtraidoResponse(x.Id, x.DocumentoId,
+                x.DocumentoVersaoId, x.Cpf, x.Cnpj, x.Cep, x.Logradouro, x.Numero,
+                x.Complemento, x.Bairro, x.Cidade, x.Uf, x.FonteDocumento, x.CriadoEm));
 }
 
 public sealed class UploadDocumentoRequest

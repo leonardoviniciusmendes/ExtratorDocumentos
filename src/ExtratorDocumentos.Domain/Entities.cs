@@ -43,6 +43,7 @@ namespace ExtratorDocumentos.Domain
         public string? ErroExtracao { get; set; }
         public DateTime? ExtraidoEm { get; set; }
         public IdentificacaoExtraida? Identificacao { get; set; }
+        public ICollection<EnderecoExtraido> Enderecos { get; set; } = new List<EnderecoExtraido>();
         public ICollection<DocumentoVersao> Versoes { get; set; } = new List<DocumentoVersao>();
         public ICollection<DocumentoHistorico> Historico { get; set; } = new List<DocumentoHistorico>();
     }
@@ -102,15 +103,6 @@ namespace ExtratorDocumentos.Domain
         public string? Cnpj { get; set; }
         public string? RazaoSocial { get; set; }
         public string? NomeFantasia { get; set; }
-        public string? Endereco { get; set; }
-        public string? NomeTitularEndereco { get; set; }
-        public string? Logradouro { get; set; }
-        public string? NumeroEndereco { get; set; }
-        public string? Complemento { get; set; }
-        public string? Bairro { get; set; }
-        public string? Cidade { get; set; }
-        public string? Estado { get; set; }
-        public string? Cep { get; set; }
         public string? EmissorDocumento { get; set; }
         public string? NumeroCliente { get; set; }
         public string? NumeroInstalacao { get; set; }
@@ -123,6 +115,26 @@ namespace ExtratorDocumentos.Domain
         public decimal Confianca { get; set; }
         public string Provedor { get; set; } = string.Empty;
         public string DadosBrutosJson { get; set; } = "{}";
+        public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    }
+
+    public class EnderecoExtraido
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid DocumentoId { get; set; }
+        public Documento? Documento { get; set; }
+        public Guid DocumentoVersaoId { get; set; }
+        public DocumentoVersao? DocumentoVersao { get; set; }
+        public string? Cpf { get; set; }
+        public string? Cnpj { get; set; }
+        public string? Cep { get; set; }
+        public string? Logradouro { get; set; }
+        public string? Numero { get; set; }
+        public string? Complemento { get; set; }
+        public string? Bairro { get; set; }
+        public string? Cidade { get; set; }
+        public string? Uf { get; set; }
+        public string? FonteDocumento { get; set; }
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     }
 }
