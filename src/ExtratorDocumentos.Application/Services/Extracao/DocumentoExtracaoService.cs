@@ -46,6 +46,7 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                 var resultado = await provider.ExtrairAsync(documento.Tipo, versao.NomeArquivo,
                     versao.TipoConteudo, stream, cancellationToken) ??
                     throw new InvalidOperationException("O provedor nao retornou dados.");
+                AplicarCpfExtraido(documento, resultado);
                 await SalvarArtefatosAsync(
                     documento, versao, resultado, cancellationToken);
 
@@ -149,6 +150,17 @@ namespace ExtratorDocumentos.Application.Services.Extracao
         private static string? SoDigitos(string? valor) =>
             string.IsNullOrWhiteSpace(valor) ? null : new string(valor.Where(char.IsDigit).ToArray());
 
+        private static void AplicarCpfExtraido(Documento documento, ExtracaoDocumentoResult resultado)
+        {
+            if (!string.IsNullOrWhiteSpace(documento.Cpf) ||
+                documento.Papel != PapelDocumento.Titular)
+                return;
+
+            var cpfExtraido = SoDigitos(resultado.Cpf);
+            if (cpfExtraido?.Length == 11)
+                documento.Cpf = cpfExtraido;
+        }
+
         private async Task SalvarArtefatosAsync(Documento documento, DocumentoVersao versao,
             ExtracaoDocumentoResult resultado, CancellationToken cancellationToken)
         {
@@ -157,9 +169,12 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                 var chaveAnterior = versao.ChaveStorage;
                 var chaveNova = StorageKeyBuilder.CriarChaveOriginal(
                     documento, versao.Versao, versao.NomeArquivo);
-                await using var originalLegado = await _storage.AbrirLeituraAsync(
-                    chaveAnterior, cancellationToken);
-                await _storage.SalvarAsync(chaveNova, originalLegado, cancellationToken);
+                if (!string.Equals(chaveAnterior, chaveNova, StringComparison.OrdinalIgnoreCase))
+                {
+                    await using var originalLegado = await _storage.AbrirLeituraAsync(
+                        chaveAnterior, cancellationToken);
+                    await _storage.SalvarAsync(chaveNova, originalLegado, cancellationToken);
+                }
                 versao.ChaveStorage = chaveNova;
             }
 

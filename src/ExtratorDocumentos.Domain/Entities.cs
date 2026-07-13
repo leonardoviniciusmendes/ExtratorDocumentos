@@ -36,7 +36,7 @@ namespace ExtratorDocumentos.Domain
     public class Documento
     {
         public Guid Id { get; set; } = Guid.NewGuid();
-        public string Cpf { get; set; } = string.Empty;
+        public string? Cpf { get; set; }
         public string? CpfDependente { get; set; }
         public string? Cnpj { get; set; }
         public PapelDocumento Papel { get; set; } = PapelDocumento.Titular;

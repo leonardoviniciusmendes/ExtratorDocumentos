@@ -161,7 +161,7 @@ public class DocumentosController : ControllerBase
 
 public sealed class UploadDocumentoRequest
 {
-    public string Cpf { get; set; } = string.Empty;
+    public string? Cpf { get; set; }
     public string? CpfDependente { get; set; }
     public string? Cnpj { get; set; }
     public PapelDocumento Papel { get; set; } = PapelDocumento.Titular;

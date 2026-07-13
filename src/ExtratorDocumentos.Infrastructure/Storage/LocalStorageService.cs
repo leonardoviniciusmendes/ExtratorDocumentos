@@ -72,8 +72,11 @@ namespace ExtratorDocumentos.Infrastructure.Storage
 
         private static string CriarPrefixo(Documento documento)
         {
-            var cpfTitular = SomenteDigitos(documento.Cpf, 11, nameof(documento.Cpf));
             var tipo = NormalizarTipoDocumento(documento.Tipo);
+            var cpfTitular = SomenteDigitosOuNulo(documento.Cpf, 11);
+            if (cpfTitular == null)
+                return $"pendentes/{documento.Id:N}/{tipo}";
+
             return documento.Papel switch
             {
                 PapelDocumento.Titular =>
@@ -93,6 +96,13 @@ namespace ExtratorDocumentos.Infrastructure.Storage
                 throw new InvalidOperationException(
                     $"{campo} deve conter {tamanho} digitos.");
             return normalizado;
+        }
+
+        private static string? SomenteDigitosOuNulo(string? valor, int tamanho)
+        {
+            if (string.IsNullOrWhiteSpace(valor)) return null;
+            var normalizado = new string(valor.Where(char.IsDigit).ToArray());
+            return normalizado.Length == tamanho ? normalizado : null;
         }
 
         private static string NormalizarTipoDocumento(TipoDocumento tipo) => tipo switch

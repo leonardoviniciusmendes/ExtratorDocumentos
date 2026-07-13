@@ -18,7 +18,7 @@ namespace ExtratorDocumentos.Infrastructure.Data
             modelBuilder.Entity<Documento>(b =>
             {
                 b.HasKey(x => x.Id);
-                b.Property(x => x.Cpf).IsRequired().HasMaxLength(11);
+                b.Property(x => x.Cpf).HasMaxLength(11);
                 b.Property(x => x.CpfDependente).HasMaxLength(11);
                 b.Property(x => x.Cnpj).HasMaxLength(14);
                 b.HasIndex(x => x.Cpf);

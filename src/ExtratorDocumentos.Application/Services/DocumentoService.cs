@@ -18,15 +18,21 @@ namespace ExtratorDocumentos.Application.Services
             _storage = storage;
         }
 
-        public async Task<Documento> CriarAsync(string cpf, string? cpfDependente,
+        public async Task<Documento> CriarAsync(string? cpf, string? cpfDependente,
             string? cnpj, PapelDocumento papel, TipoParentesco tipoParentesco,
             TipoDocumento tipo, string? observacoes,
             string nomeArquivo, string tipoConteudo, Stream arquivo, CancellationToken cancellationToken)
         {
-            var cpfNormalizado = NormalizarCpf(cpf);
             if (!Enum.IsDefined(papel))
                 throw new ArgumentException("Papel deve ser titular, dependente ou empresa.",
                     nameof(papel));
+            var cpfNormalizado = NormalizarCpfOpcional(cpf);
+            if ((EhDocumentoEndereco(tipo) || papel == PapelDocumento.Dependente) &&
+                cpfNormalizado == null)
+                throw new ArgumentException(
+                    "CPF do titular e obrigatorio para upload de endereco ou dependente.",
+                    nameof(cpf));
+
             var documento = new Documento
             {
                 Cpf = cpfNormalizado,
@@ -157,6 +163,12 @@ namespace ExtratorDocumentos.Application.Services
             return normalizado;
         }
 
+        private static string? NormalizarCpfOpcional(string? cpf)
+        {
+            if (string.IsNullOrWhiteSpace(cpf)) return null;
+            return NormalizarCpf(cpf);
+        }
+
         private static string NormalizarDocumento(string? valor, int tamanho, string campo)
         {
             var normalizado = new string((valor ?? string.Empty).Where(char.IsDigit).ToArray());
@@ -165,5 +177,17 @@ namespace ExtratorDocumentos.Application.Services
                     $"{campo} deve conter {tamanho} digitos.", campo);
             return normalizado;
         }
+
+        private static bool EhDocumentoEndereco(TipoDocumento tipo) =>
+            tipo is TipoDocumento.ComprovanteResidencia
+                or TipoDocumento.ContaLuz
+                or TipoDocumento.ContaAgua
+                or TipoDocumento.ContaTelefone
+                or TipoDocumento.ContaInternet
+                or TipoDocumento.ContaGas
+                or TipoDocumento.FaturaCartaoCredito
+                or TipoDocumento.ExtratoBancario
+                or TipoDocumento.ContratoLocacao
+                or TipoDocumento.IPTU;
     }
 }

@@ -14,7 +14,7 @@ namespace ExtratorDocumentos.Application.Dtos.Documentos
     }
 
     public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
-    public sealed record DocumentoResponse(Guid Id, string Cpf, string? CpfDependente,
+    public sealed record DocumentoResponse(Guid Id, string? Cpf, string? CpfDependente,
         string? Cnpj, PapelDocumento Papel, TipoParentesco TipoParentesco,
         TipoDocumento Tipo, StatusDocumento Status, string? Observacoes, int VersaoAtual, bool Excluido,
         DateTime CriadoEm, DateTime AtualizadoEm, StatusExtracao StatusExtracao,

@@ -33,7 +33,6 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                         .HasColumnType("varchar(14)");
 
                     b.Property<string>("Cpf")
-                        .IsRequired()
                         .HasMaxLength(11)
                         .HasColumnType("varchar(11)");
 
