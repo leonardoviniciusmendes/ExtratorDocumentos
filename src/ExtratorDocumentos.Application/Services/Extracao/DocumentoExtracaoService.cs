@@ -136,7 +136,7 @@ namespace ExtratorDocumentos.Application.Services.Extracao
 
         private static bool EhDocumentoIdentificacao(TipoDocumento tipo) =>
             tipo is TipoDocumento.CNH or TipoDocumento.RG or TipoDocumento.CPF
-                or TipoDocumento.CartaoCNPJ;
+                or TipoDocumento.CartaoCNPJ or TipoDocumento.DocumentoOficialComSelfie;
 
         private static bool PossuiEndereco(ExtracaoDocumentoResult r) =>
             !string.IsNullOrWhiteSpace(r.Cep) ||

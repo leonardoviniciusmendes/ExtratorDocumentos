@@ -46,6 +46,11 @@ namespace ExtratorDocumentos.Application.Dtos.Documentos
         IdentificacaoExtraidaResponse? Identificacao,
         IReadOnlyList<EnderecoExtraidoResponse> Enderecos,
         VinculoExtracaoResponse? Vinculo);
+    public sealed record UploadDocumentoResponse(
+        Guid Id,
+        bool ExtracaoProcessada,
+        DadosExtraidosResponse? DadosExtraidos,
+        string ReprocessarUrl);
     public sealed class AtualizarDocumentoRequest
     {
         public StatusDocumento? Status { get; set; }

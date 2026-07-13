@@ -14,7 +14,10 @@ public class DocumentosController : ControllerBase
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(104_857_600)]
     public async Task<IActionResult> Upload([FromForm] UploadDocumentoRequest request,
-        [FromServices] DocumentoService service, CancellationToken cancellationToken)
+        [FromServices] DocumentoService documentoService,
+        [FromServices] DocumentoExtracaoService extracaoService,
+        [FromServices] AppDbContext db,
+        CancellationToken cancellationToken)
     {
         if (request.Arquivo == null || request.Arquivo.Length == 0)
             return BadRequest(new { erro = "Arquivo e obrigatorio." });
@@ -22,11 +25,22 @@ public class DocumentosController : ControllerBase
         await using var stream = request.Arquivo.OpenReadStream();
         try
         {
-            var documento = await service.CriarAsync(request.Cpf, request.CpfDependente,
+            var documento = await documentoService.CriarAsync(request.Cpf, request.CpfDependente,
                 request.Cnpj, request.Papel, request.TipoParentesco, request.Tipo,
                 request.Observacoes, request.Arquivo.FileName,
                 request.Arquivo.ContentType, stream, cancellationToken);
-            return CreatedAtAction(nameof(GetById), new { id = documento.Id }, new { documento.Id });
+            var extracaoProcessada = await extracaoService.ExtrairAsync(
+                documento.Id, cancellationToken);
+            var dadosExtraidos = extracaoProcessada
+                ? await ObterDadosExtraidosAsync(db, documento.Id, cancellationToken)
+                : null;
+            var response = new UploadDocumentoResponse(
+                documento.Id,
+                extracaoProcessada,
+                dadosExtraidos,
+                Url.Action(nameof(ExtrairIdentificacao), new { id = documento.Id }) ??
+                    $"/api/documentos/{documento.Id}/extrair-identificacao");
+            return CreatedAtAction(nameof(GetById), new { id = documento.Id }, response);
         }
         catch (ArgumentException ex)
         {
@@ -98,28 +112,8 @@ public class DocumentosController : ControllerBase
     public async Task<IActionResult> GetIdentificacao(Guid id, [FromServices] AppDbContext db,
         CancellationToken cancellationToken)
     {
-        var identificacao = await db.IdentificacoesExtraidas.AsNoTracking()
-            .Where(x => x.DocumentoId == id)
-            .Select(x => new IdentificacaoExtraidaResponse(x.Id, x.DocumentoId,
-                x.DocumentoVersaoId, x.NomeCompleto, x.Cpf, x.Rg, x.OrgaoEmissor,
-                x.UfEmissao, x.DataNascimento, x.Naturalidade, x.Nacionalidade,
-                x.NomeMae, x.NomePai, x.NumeroCnh, x.CategoriaCnh, x.ValidadeCnh,
-                x.DataPrimeiraHabilitacao, x.DataEmissao, x.LocalEmissao,
-                x.NumeroRenach, x.ObservacoesCnh, x.Cnpj, x.RazaoSocial, x.NomeFantasia,
-                x.EmissorDocumento,
-                x.NumeroCliente, x.NumeroInstalacao, x.MesReferencia, x.DataVencimento,
-                x.MatriculaCertidao, x.Livro, x.Folha, x.Termo, x.Confianca,
-                x.Provedor, x.CriadoEm)).FirstOrDefaultAsync(cancellationToken);
-        var enderecos = await ConsultarEnderecos(
-            db, id, identificacao?.Cpf, identificacao?.Cnpj).ToListAsync(cancellationToken);
-        if (identificacao == null && enderecos.Count == 0) return NotFound();
-        var referencia = enderecos.FirstOrDefault();
-        var vinculo = identificacao != null
-            ? new VinculoExtracaoResponse(identificacao.Cpf, identificacao.Cnpj,
-                identificacao.DocumentoId, identificacao.DocumentoVersaoId)
-            : referencia == null ? null : new VinculoExtracaoResponse(referencia.Cpf,
-                referencia.Cnpj, referencia.DocumentoId, referencia.DocumentoVersaoId);
-        return Ok(new DadosExtraidosResponse(identificacao, enderecos, vinculo));
+        var dados = await ObterDadosExtraidosAsync(db, id, cancellationToken);
+        return dados == null ? NotFound() : Ok(dados);
     }
 
     [HttpGet("{id}/enderecos")]
@@ -133,8 +127,16 @@ public class DocumentosController : ControllerBase
 
     [HttpPost("{id}/extrair-identificacao")]
     public async Task<IActionResult> ExtrairIdentificacao(Guid id,
-        [FromServices] DocumentoExtracaoService service, CancellationToken cancellationToken) =>
-        await service.ExtrairAsync(id, cancellationToken) ? Ok() : UnprocessableEntity();
+        [FromServices] DocumentoExtracaoService service,
+        [FromServices] AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (!await service.ExtrairAsync(id, cancellationToken))
+            return UnprocessableEntity();
+
+        var dados = await ObterDadosExtraidosAsync(db, id, cancellationToken);
+        return dados == null ? Ok() : Ok(dados);
+    }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Atualizar(Guid id, [FromBody] AtualizarDocumentoRequest request,
@@ -157,6 +159,35 @@ public class DocumentosController : ControllerBase
             .Select(x => new EnderecoExtraidoResponse(x.Id, x.DocumentoId,
                 x.DocumentoVersaoId, x.Cpf, x.Cnpj, x.Cep, x.Logradouro, x.Numero,
                 x.Complemento, x.Bairro, x.Cidade, x.Uf, x.FonteDocumento, x.CriadoEm));
+
+    private static async Task<DadosExtraidosResponse?> ObterDadosExtraidosAsync(
+        AppDbContext db, Guid documentoId, CancellationToken cancellationToken)
+    {
+        var identificacao = await db.IdentificacoesExtraidas.AsNoTracking()
+            .Where(x => x.DocumentoId == documentoId)
+            .Select(x => new IdentificacaoExtraidaResponse(x.Id, x.DocumentoId,
+                x.DocumentoVersaoId, x.NomeCompleto, x.Cpf, x.Rg, x.OrgaoEmissor,
+                x.UfEmissao, x.DataNascimento, x.Naturalidade, x.Nacionalidade,
+                x.NomeMae, x.NomePai, x.NumeroCnh, x.CategoriaCnh, x.ValidadeCnh,
+                x.DataPrimeiraHabilitacao, x.DataEmissao, x.LocalEmissao,
+                x.NumeroRenach, x.ObservacoesCnh, x.Cnpj, x.RazaoSocial, x.NomeFantasia,
+                x.EmissorDocumento,
+                x.NumeroCliente, x.NumeroInstalacao, x.MesReferencia, x.DataVencimento,
+                x.MatriculaCertidao, x.Livro, x.Folha, x.Termo, x.Confianca,
+                x.Provedor, x.CriadoEm)).FirstOrDefaultAsync(cancellationToken);
+        var enderecos = await ConsultarEnderecos(
+            db, documentoId, identificacao?.Cpf, identificacao?.Cnpj)
+            .ToListAsync(cancellationToken);
+        if (identificacao == null && enderecos.Count == 0) return null;
+
+        var referencia = enderecos.FirstOrDefault();
+        var vinculo = identificacao != null
+            ? new VinculoExtracaoResponse(identificacao.Cpf, identificacao.Cnpj,
+                identificacao.DocumentoId, identificacao.DocumentoVersaoId)
+            : referencia == null ? null : new VinculoExtracaoResponse(referencia.Cpf,
+                referencia.Cnpj, referencia.DocumentoId, referencia.DocumentoVersaoId);
+        return new DadosExtraidosResponse(identificacao, enderecos, vinculo);
+    }
 }
 
 public sealed class UploadDocumentoRequest

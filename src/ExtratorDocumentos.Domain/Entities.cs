@@ -6,7 +6,8 @@ namespace ExtratorDocumentos.Domain
         CertidaoNascimento = 5, CertidaoCasamento = 6, ContratoSocial = 7,
         CartaoCNPJ = 8, ContaAgua = 9, ContaTelefone = 10, ContaInternet = 11,
         ContaGas = 12, FaturaCartaoCredito = 13, ExtratoBancario = 14,
-        ContratoLocacao = 15, IPTU = 16, Outros = 99
+        ContratoLocacao = 15, IPTU = 16, Elegibilidade = 17,
+        FichaAssociativa = 18, DocumentoOficialComSelfie = 19, Outros = 99
     }
 
     public enum StatusDocumento

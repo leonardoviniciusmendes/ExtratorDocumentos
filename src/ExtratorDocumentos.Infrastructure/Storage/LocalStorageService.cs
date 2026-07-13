@@ -124,6 +124,9 @@ namespace ExtratorDocumentos.Infrastructure.Storage
             TipoDocumento.ExtratoBancario => "extrato-bancario",
             TipoDocumento.ContratoLocacao => "contrato-locacao",
             TipoDocumento.IPTU => "iptu",
+            TipoDocumento.Elegibilidade => "elegibilidade",
+            TipoDocumento.FichaAssociativa => "ficha-associativa",
+            TipoDocumento.DocumentoOficialComSelfie => "documento-oficial-com-selfie",
             _ => "outros"
         };
     }
