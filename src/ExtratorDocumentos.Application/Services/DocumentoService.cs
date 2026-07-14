@@ -37,7 +37,7 @@ namespace ExtratorDocumentos.Application.Services
             {
                 Cpf = cpfNormalizado,
                 CpfDependente = papel == PapelDocumento.Dependente
-                    ? NormalizarDocumento(cpfDependente, 11, nameof(cpfDependente)) : null,
+                    ? NormalizarDocumentoOpcional(cpfDependente, 11, nameof(cpfDependente)) : null,
                 Cnpj = papel == PapelDocumento.Empresa
                     ? NormalizarDocumento(cnpj, 14, nameof(cnpj)) : null,
                 Papel = papel,
@@ -176,6 +176,12 @@ namespace ExtratorDocumentos.Application.Services
                 throw new ArgumentException(
                     $"{campo} deve conter {tamanho} digitos.", campo);
             return normalizado;
+        }
+
+        private static string? NormalizarDocumentoOpcional(string? valor, int tamanho, string campo)
+        {
+            if (string.IsNullOrWhiteSpace(valor)) return null;
+            return NormalizarDocumento(valor, tamanho, campo);
         }
 
         private static bool EhDocumentoEndereco(TipoDocumento tipo) =>

@@ -82,12 +82,15 @@ namespace ExtratorDocumentos.Infrastructure.Storage
                 PapelDocumento.Titular =>
                     $"clientes/{cpfTitular}/titular/{tipo}",
                 PapelDocumento.Dependente =>
-                    $"clientes/{cpfTitular}/dependentes/{SomenteDigitos(documento.CpfDependente, 11, nameof(documento.CpfDependente))}/{tipo}",
+                    $"clientes/{cpfTitular}/dependentes/{IdentificadorDependente(documento)}/{tipo}",
                 PapelDocumento.Empresa =>
                     $"clientes/{cpfTitular}/empresa/{SomenteDigitos(documento.Cnpj, 14, nameof(documento.Cnpj))}/{tipo}",
                 _ => throw new InvalidOperationException("Papel de documento invalido.")
             };
         }
+
+        private static string IdentificadorDependente(Documento documento) =>
+            SomenteDigitosOuNulo(documento.CpfDependente, 11) ?? $"sem-cpf/{documento.Id:N}";
 
         private static string SomenteDigitos(string? valor, int tamanho, string campo)
         {
