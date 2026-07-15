@@ -80,7 +80,8 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             if (extracaoSchemaAtivo is { Status: StatusExtracao.Concluido or StatusExtracao.ConcluidoComAlertas or StatusExtracao.RequerRevisao, ResultadoJson: not null })
                 return DesserializarResultado(extracaoSchemaAtivo.ResultadoJson, true);
             if (extracaoSchemaAtivo is { Status: StatusExtracao.Processando or StatusExtracao.Pendente })
-                return CriarRespostaProcessando(documento, extracaoSchemaAtivo, hash);
+                throw new InvalidOperationException(
+                    $"PROCESSAMENTO_EM_ANDAMENTO: Ja existe uma extracao em andamento para este arquivo e tipo. DocumentoExtracaoId={extracaoSchemaAtivo.Id}.");
 
             var extracao = extracaoSchemaAtivo ?? new DocumentoExtracao
             {
@@ -108,7 +109,8 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 if (concorrente?.ResultadoJson != null)
                     return DesserializarResultado(concorrente.ResultadoJson, true);
                 if (concorrente != null)
-                    return CriarRespostaProcessando(documento, concorrente, hash);
+                    throw new InvalidOperationException(
+                        $"PROCESSAMENTO_EM_ANDAMENTO: Ja existe uma extracao em andamento para este arquivo e tipo. DocumentoExtracaoId={concorrente.Id}.");
                 throw;
             }
 
@@ -435,33 +437,6 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             result.ResultadoReutilizado = reutilizado;
             return result;
         }
-
-        private static ResultadoDocumentoPadronizadoDto CriarRespostaProcessando(
-            Documento documento, DocumentoExtracao extracao, string hash) =>
-            new()
-            {
-                DocumentoId = documento.Id,
-                DocumentoExtracaoId = extracao.Id,
-                ResultadoReutilizado = true,
-                TipoDocumento =
-                {
-                    Id = extracao.TipoDocumentoId,
-                    SchemaId = extracao.TipoDocumentoSchemaId,
-                    SchemaVersao = extracao.VersaoSchema,
-                    Similaridade = extracao.SimilaridadeTipo ?? 0m,
-                    TipoReutilizado = extracao.TipoReutilizado
-                },
-                Validacao =
-                {
-                    SchemaAplicado = false,
-                    DadosObrigatoriosEncontrados = false,
-                    RequerRevisaoHumana = false
-                },
-                Processamento =
-                {
-                    VersaoExtrator = extracao.VersaoExtrator
-                }
-            };
 
         private static ResultadoDocumentoPadronizadoDto CriarRespostaErro(
             Documento documento, DocumentoExtracao extracao, string hash,

@@ -17,11 +17,16 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 : $$"""
                   O documento foi classificado como: {{tipoDocumentoSolicitado}}.
                   Use obrigatoriamente o schema ativo abaixo como contrato de saida local.
-                  Retorne todas as propriedades definidas no schema em camposExtraidos.
+                  O campo jsonExemplo do schema define exatamente a estrutura final esperada pela API.
+                  Extraia os valores para preencher cada chave presente em jsonExemplo.
+                  Retorne todas as propriedades definidas em jsonExemplo dentro de camposExtraidos,
+                  usando a mesma chave em "chave", o valor bruto em "valorOriginal" e o valor final em "valorNormalizado".
                   Quando um valor nao for encontrado, retorne null.
-                  Nao adicione propriedades novas dentro de dados; campos nao previstos devem ser identificados separadamente para camposAdicionais.
+                  Nao retorne campos do jsonExemplo como campos adicionais.
+                  Campos nao previstos no jsonExemplo devem aparecer em camposExtraidos somente se forem realmente encontrados no documento.
                   Datas devem ser YYYY-MM-DD. Decimais devem ser numeros JSON, sem simbolo de moeda.
                   Booleanos devem ser true/false. Listas devem ser arrays.
+                  Se o arquivo tiver texto extraivel, priorize o texto do arquivo antes de inferir pela imagem.
                   Schema ativo:
                   {{schemaJson}}
                   """;
