@@ -28,6 +28,8 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 "Tipos validos: RG, CPF, CNH, ComprovanteResidencia, ContaLuz, CertidaoNascimento, CertidaoCasamento, ContratoSocial, CartaoCNPJ, ContaAgua, ContaTelefone, ContaInternet, ContaGas, FaturaCartaoCredito, ExtratoBancario, ContratoLocacao, IPTU, Elegibilidade, FichaAssociativa, DocumentoOficialComSelfie, Outros.";
             var chamada = await EnviarAsync(modelo, prompt, caracteristicas, conteudo,
                 cancellationToken);
+
+
             if (!chamada.Sucesso || string.IsNullOrWhiteSpace(chamada.Conteudo))
                 return chamada.ToResultado<DocumentoIdentificado>(null);
 
@@ -98,8 +100,11 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             var chamada = await EnviarAsync(modelo,
                 DocumentoIdentificacaoPrompt.Criar(tipoDocumentoSolicitado),
                 caracteristicas, conteudo, cancellationToken);
+
+
             if (!chamada.Sucesso || string.IsNullOrWhiteSpace(chamada.Conteudo))
                 return chamada.ToResultado<ResultadoIdentificacaoDocumentoDto>(null);
+
 
             try
             {

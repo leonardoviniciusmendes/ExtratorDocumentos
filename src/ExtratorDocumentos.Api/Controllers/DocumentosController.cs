@@ -39,6 +39,14 @@ public sealed class DocumentosController : ControllerBase
                     processamento = resultado.Processamento
                 });
 
+
+            if(request.TipoDocumento == TipoDocumentoProcessamento.Endereco)
+            {
+                var dadosEndereco = CriarRespostaDadosEndereco(resultado);
+                return resultado.ResultadoReutilizado
+                    ? Ok(dadosEndereco)
+                    : StatusCode(StatusCodes.Status201Created, dadosEndereco);
+            }
             var dados = CriarRespostaDados(resultado);
             return resultado.ResultadoReutilizado
                 ? Ok(dados)
@@ -87,6 +95,56 @@ public sealed class DocumentosController : ControllerBase
         return dados;
     }
 
+    private static Dictionary<string, object?> CriarRespostaDadosEndereco(
+    ResultadoIdentificacaoDocumentoDto resultado)
+    {
+        var dados = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            // Classificação
+            ["tipoDocumento"] = resultado.Classificacao.TipoIdentificado,
+            ["nomeDocumento"] = resultado.Classificacao.NomeDocumentoOriginal,
+            ["paisEmissor"] = resultado.Classificacao.PaisEmissor,
+
+            // Titular
+            ["nomeCompleto"] = resultado.Titular.NomeCompleto,
+
+            // Endereço
+            ["logradouro"] = resultado.Endereco.Logradouro,
+            ["numero"] = resultado.Endereco.Numero,
+            ["complemento"] = resultado.Endereco.Complemento,
+            ["bairro"] = resultado.Endereco.Bairro,
+            ["cidade"] = resultado.Endereco.Cidade,
+            ["estado"] = resultado.Endereco.Estado,
+            ["cep"] = resultado.Endereco.Cep,
+            ["pais"] = resultado.Endereco.Pais,
+            ["codigoPais"] = resultado.Endereco.CodigoPais,
+            ["enderecoCompletoOriginal"] = resultado.Endereco.EnderecoCompletoOriginal
+        };
+
+        // Campos específicos do documento
+        foreach (var (chave, valor) in resultado.CamposEspecificos.Valores)
+        {
+            if (!string.IsNullOrWhiteSpace(chave) && !dados.ContainsKey(chave))
+            {
+                dados[chave] = NormalizarValorJson(valor);
+            }
+        }
+
+        // Demais campos extraídos pela IA
+        foreach (var campo in resultado.CamposExtraidos)
+        {
+            if (string.IsNullOrWhiteSpace(campo.Chave) ||
+                dados.ContainsKey(campo.Chave))
+            {
+                continue;
+            }
+
+            dados[campo.Chave] = NormalizarValorJson(
+                campo.ValorNormalizado ?? campo.ValorOriginal);
+        }
+
+        return dados;
+    }
     private static object? NormalizarValorJson(object? valor)
     {
         if (valor is not JsonElement json)
