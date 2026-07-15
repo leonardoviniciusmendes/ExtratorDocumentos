@@ -180,8 +180,17 @@ namespace ExtratorDocumentos.Application.Services
 
         private static string? NormalizarDocumentoOpcional(string? valor, int tamanho, string campo)
         {
-            if (string.IsNullOrWhiteSpace(valor)) return null;
-            return NormalizarDocumento(valor, tamanho, campo);
+            if (string.IsNullOrWhiteSpace(valor) ||
+                valor.Equals("null", StringComparison.OrdinalIgnoreCase) ||
+                valor.Equals("undefined", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var normalizado = new string(valor.Where(char.IsDigit).ToArray());
+            if (normalizado.Length == 0) return null;
+            if (normalizado.Length != tamanho)
+                throw new ArgumentException(
+                    $"{campo} deve conter {tamanho} digitos.", campo);
+            return normalizado;
         }
 
         private static bool EhDocumentoEndereco(TipoDocumento tipo) =>
