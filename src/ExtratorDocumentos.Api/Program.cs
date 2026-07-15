@@ -78,6 +78,11 @@ builder.Services.AddHttpClient<IOpenRouterPipelineClient, OpenRouterPipelineClie
     var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
         ?? "https://openrouter.ai/api/v1/";
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    var timeoutSeconds =
+        builder.Configuration.GetValue<int?>("DocumentExtraction:OpenRouter:TimeoutSeconds") ??
+        builder.Configuration.GetValue<int?>("OpenRouter:TimeoutSeconds") ??
+        300;
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
 builder.Services.AddScoped<AtualizarOpenRouterModelosJob>();
 builder.Services.AddScoped<HangfireJobScheduler>();
