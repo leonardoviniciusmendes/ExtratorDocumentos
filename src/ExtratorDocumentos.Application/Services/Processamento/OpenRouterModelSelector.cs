@@ -38,7 +38,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             SelecionarAsync("extracao", documento.Tipo, arquivo, cancellationToken);
 
         private async Task<IReadOnlyList<ModeloSelecionado>> SelecionarAsync(string objetivo,
-            TipoDocumento? tipo, CaracteristicasArquivo arquivo,
+            TipoDocumentoLegado? tipo, CaracteristicasArquivo arquivo,
             CancellationToken cancellationToken)
         {
             var custoMaximo = decimal.TryParse(
@@ -82,13 +82,13 @@ namespace ExtratorDocumentos.Application.Services.Processamento
         }
 
         private static int PenalidadeComplexidade(OpenRouterModelo modelo,
-            string objetivo, TipoDocumento? tipo, CaracteristicasArquivo arquivo)
+            string objetivo, TipoDocumentoLegado? tipo, CaracteristicasArquivo arquivo)
         {
             var penalidade = 0;
             if (objetivo == "extracao" &&
                 (arquivo.PossuiTabelas || arquivo.QuantidadePaginas > 3))
                 penalidade -= modelo.SuportaStructuredOutputs ? 5 : 0;
-            if (tipo is TipoDocumento.ContratoSocial or TipoDocumento.ExtratoBancario)
+            if (tipo is TipoDocumentoLegado.ContratoSocial or TipoDocumentoLegado.ExtratoBancario)
                 penalidade -= modelo.ContextoTokens >= 32000 ? 4 : 0;
             if (!arquivo.ExigeModeloVisao && (modelo.AceitaImagem || modelo.AceitaArquivo))
                 penalidade += 1;

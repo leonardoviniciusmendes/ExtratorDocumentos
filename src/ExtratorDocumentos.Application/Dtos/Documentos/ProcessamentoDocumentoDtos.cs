@@ -22,7 +22,7 @@ namespace ExtratorDocumentos.Application.Dtos.Documentos
         bool ExigeModeloVisao);
 
     public sealed record DocumentoIdentificado(
-        TipoDocumento Tipo,
+        TipoDocumentoLegado Tipo,
         decimal Confianca,
         string ResultadoJson);
 
@@ -40,7 +40,7 @@ namespace ExtratorDocumentos.Application.Dtos.Documentos
         StatusDocumento Status,
         bool ArquivoReutilizado,
         bool ProcessamentoExecutado,
-        TipoDocumento? TipoDocumento,
+        TipoDocumentoLegado? TipoDocumentoLegado,
         string? ModeloIdentificacao,
         string? ModeloExtracao,
         string? Resultado,

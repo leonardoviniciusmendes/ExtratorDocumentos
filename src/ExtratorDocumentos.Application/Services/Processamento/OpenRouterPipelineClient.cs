@@ -38,8 +38,8 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                     ? tipoElement.GetString() : "Outros";
                 var confianca = doc.RootElement.TryGetProperty("confianca", out var confElement) &&
                     confElement.TryGetDecimal(out var valor) ? valor : 0m;
-                if (!Enum.TryParse<TipoDocumento>(tipoTexto, true, out var tipo))
-                    tipo = TipoDocumento.Outros;
+                if (!Enum.TryParse<TipoDocumentoLegado>(tipoTexto, true, out var tipo))
+                    tipo = TipoDocumentoLegado.Outros;
                 return chamada.ToResultado(new DocumentoIdentificado(
                     tipo, Math.Clamp(confianca, 0, 100), chamada.Conteudo));
             }

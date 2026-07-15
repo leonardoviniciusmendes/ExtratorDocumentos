@@ -243,7 +243,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 Extensao = caracteristicas.Extensao,
                 MimeType = caracteristicas.MimeType,
                 TamanhoBytes = caracteristicas.TamanhoBytes,
-                Tipo = TipoDocumento.Outros,
+                Tipo = TipoDocumentoLegado.Outros,
                 Status = StatusDocumento.Pendente,
                 StatusExtracao = StatusExtracao.Pendente,
                 VersaoExtrator = versaoExtrator,

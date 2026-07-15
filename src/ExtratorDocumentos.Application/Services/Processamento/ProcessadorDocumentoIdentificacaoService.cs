@@ -18,13 +18,22 @@ namespace ExtratorDocumentos.Application.Services.Processamento
         private readonly IArquivoAnaliseService _analiseService;
         private readonly IOpenRouterModelCandidateSelector _selector;
         private readonly IOpenRouterPipelineClient _openRouter;
+        private readonly IAssinaturaEstruturalDocumentoService _assinaturaService;
+        private readonly IIdentificadorTipoDocumentoService _identificadorTipo;
+        private readonly ITipoDocumentoAprendizadoService _aprendizadoService;
+        private readonly IAplicadorSchemaDocumentoService _aplicadorSchema;
         private readonly IConfiguration _configuration;
         private readonly ILogger<ProcessadorDocumentoIdentificacaoService> _logger;
 
         public ProcessadorDocumentoIdentificacaoService(AppDbContext db,
             LocalStorageService storage, IArquivoAnaliseService analiseService,
             IOpenRouterModelCandidateSelector selector,
-            IOpenRouterPipelineClient openRouter, IConfiguration configuration,
+            IOpenRouterPipelineClient openRouter,
+            IAssinaturaEstruturalDocumentoService assinaturaService,
+            IIdentificadorTipoDocumentoService identificadorTipo,
+            ITipoDocumentoAprendizadoService aprendizadoService,
+            IAplicadorSchemaDocumentoService aplicadorSchema,
+            IConfiguration configuration,
             ILogger<ProcessadorDocumentoIdentificacaoService> logger)
         {
             _db = db;
@@ -32,11 +41,15 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             _analiseService = analiseService;
             _selector = selector;
             _openRouter = openRouter;
+            _assinaturaService = assinaturaService;
+            _identificadorTipo = identificadorTipo;
+            _aprendizadoService = aprendizadoService;
+            _aplicadorSchema = aplicadorSchema;
             _configuration = configuration;
             _logger = logger;
         }
 
-        public async Task<ResultadoIdentificacaoDocumentoDto> ProcessarAsync(
+        public async Task<ResultadoDocumentoPadronizadoDto> ProcessarAsync(
             TipoDocumentoProcessamento tipoDocumento, ArquivoDocumento arquivo,
             CancellationToken cancellationToken)
         {
@@ -51,6 +64,11 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             var documento = await ObterOuCriarDocumentoAsync(
                 arquivo, bytes, hash, versaoSchema, versaoExtrator,
                 cancellationToken);
+
+            var extracaoSchemaAtivo = await BuscarExtracaoComSchemaAtivoAsync(
+                documento.Id, tipoSolicitado, versaoExtrator, cancellationToken);
+            if (extracaoSchemaAtivo is { Status: StatusExtracao.Concluido or StatusExtracao.ConcluidoComAlertas or StatusExtracao.RequerRevisao, ResultadoJson: not null })
+                return DesserializarResultado(extracaoSchemaAtivo.ResultadoJson, true);
 
             var extracaoExistente = await BuscarExtracaoAsync(
                 documento.Id, tipoSolicitado, versaoSchema, versaoExtrator,
@@ -92,7 +110,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 arquivo, bytes, hash, versaoSchema, versaoExtrator, cancellationToken);
         }
 
-        private async Task<ResultadoIdentificacaoDocumentoDto> ExecutarExtracaoAsync(
+        private async Task<ResultadoDocumentoPadronizadoDto> ExecutarExtracaoAsync(
             Documento documento, DocumentoExtracao extracao, string tipoSolicitado,
             ArquivoDocumento arquivo, byte[] bytes, string hash, string versaoSchema,
             string versaoExtrator, CancellationToken cancellationToken)
@@ -116,13 +134,32 @@ namespace ExtratorDocumentos.Application.Services.Processamento
 
                 CompletarResultado(resultado, documento, extracao, tipoSolicitado,
                     hash, versaoSchema, versaoExtrator, chamada.ModeloId);
+                var assinatura = _assinaturaService.Gerar(resultado, caracteristicas);
+                var identificacaoTipo = await _identificadorTipo.IdentificarAsync(
+                    assinatura, cancellationToken);
+                var (tipoAprendido, schema, tipoReutilizado, similaridade, requerRevisao) =
+                    await _aprendizadoService.ObterOuCriarAsync(
+                        identificacaoTipo, assinatura, resultado, cancellationToken);
+                var padronizado = await _aplicadorSchema.AplicarAsync(
+                    schema, resultado, cancellationToken);
+                CompletarResultadoPadronizado(padronizado, documento, extracao,
+                    tipoAprendido, schema, tipoReutilizado, similaridade,
+                    requerRevisao, chamada.ModeloId, versaoExtrator);
+                await _aprendizadoService.RegistrarCamposAdicionaisAsync(
+                    tipoAprendido, padronizado.CamposAdicionais, cancellationToken);
                 var status = DefinirStatus(resultado);
+                if (padronizado.Validacao.RequerRevisaoHumana)
+                    status = StatusExtracao.RequerRevisao;
                 extracao.Status = status;
+                extracao.TipoDocumentoId = tipoAprendido.Id;
+                extracao.TipoDocumentoSchemaId = schema.Id;
+                extracao.SimilaridadeTipo = similaridade;
+                extracao.TipoReutilizado = tipoReutilizado;
                 extracao.TipoDocumentoIdentificado = resultado.Classificacao.TipoIdentificado;
                 extracao.Confianca = resultado.Validacao.ConfiancaGeral;
                 extracao.ModeloExtracao = chamada.ModeloId;
                 extracao.ModeloIdentificacao = chamada.ModeloId;
-                extracao.ResultadoJson = JsonSerializer.Serialize(resultado);
+                extracao.ResultadoJson = JsonSerializer.Serialize(padronizado);
                 extracao.ProcessadoEm = DateTime.UtcNow;
                 extracao.AtualizadoEm = DateTime.UtcNow;
                 documento.Status = status == StatusExtracao.Concluido
@@ -134,7 +171,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 documento.ProcessadoEm = extracao.ProcessadoEm;
                 documento.AtualizadoEm = DateTime.UtcNow;
                 await _db.SaveChangesAsync(cancellationToken);
-                return resultado;
+                return padronizado;
             }
             catch (Exception ex)
             {
@@ -187,7 +224,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 Extensao = caracteristicas.Extensao,
                 MimeType = caracteristicas.MimeType,
                 TamanhoBytes = bytes.LongLength,
-                Tipo = TipoDocumento.Outros,
+                Tipo = TipoDocumentoLegado.Outros,
                 Status = StatusDocumento.Pendente,
                 VersaoSchema = versaoSchema,
                 VersaoExtrator = versaoExtrator
@@ -261,9 +298,24 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             CancellationToken cancellationToken) =>
             _db.DocumentoExtracoes.FirstOrDefaultAsync(x =>
                 x.DocumentoId == documentoId &&
+                x.TipoDocumentoSchemaId == null &&
                 x.TipoDocumentoSolicitado == tipoSolicitado &&
                 x.VersaoSchema == versaoSchema &&
                 x.VersaoExtrator == versaoExtrator, cancellationToken);
+
+        private Task<DocumentoExtracao?> BuscarExtracaoComSchemaAtivoAsync(
+            Guid documentoId, string tipoSolicitado, string versaoExtrator,
+            CancellationToken cancellationToken) =>
+            _db.DocumentoExtracoes
+                .Include(x => x.TipoDocumentoSchema)
+                .FirstOrDefaultAsync(x =>
+                    x.DocumentoId == documentoId &&
+                    x.TipoDocumentoSolicitado == tipoSolicitado &&
+                    x.VersaoExtrator == versaoExtrator &&
+                    x.TipoDocumentoSchemaId != null &&
+                    x.TipoDocumentoSchema != null &&
+                    x.TipoDocumentoSchema.Ativo,
+                    cancellationToken);
 
         private void RegistrarUso<T>(DocumentoExtracao extracao, string objetivo,
             ResultadoChamadaModelo<T> chamada)
@@ -333,6 +385,42 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             extracao.Status = status;
         }
 
+        private static void CompletarResultadoPadronizado(
+            ResultadoDocumentoPadronizadoDto resultado,
+            Documento documento,
+            DocumentoExtracao extracao,
+            TipoDocumento tipoDocumento,
+            TipoDocumentoSchema schema,
+            bool tipoReutilizado,
+            decimal similaridade,
+            bool requerRevisao,
+            string modelo,
+            string versaoExtrator)
+        {
+            resultado.DocumentoId = documento.Id;
+            resultado.DocumentoExtracaoId = extracao.Id;
+            resultado.ResultadoReutilizado = false;
+            resultado.TipoDocumento.Id = tipoDocumento.Id;
+            resultado.TipoDocumento.Codigo = tipoDocumento.Codigo;
+            resultado.TipoDocumento.Nome = tipoDocumento.Nome;
+            resultado.TipoDocumento.SchemaId = schema.Id;
+            resultado.TipoDocumento.SchemaVersao = schema.Versao;
+            resultado.TipoDocumento.Similaridade = similaridade;
+            resultado.TipoDocumento.TipoReutilizado = tipoReutilizado;
+            resultado.TipoDocumento.TipoConfirmado = tipoDocumento.Confirmado;
+            resultado.Validacao.RequerRevisaoHumana =
+                resultado.Validacao.RequerRevisaoHumana ||
+                requerRevisao ||
+                !tipoDocumento.Confirmado;
+            if (requerRevisao)
+                resultado.Validacao.Alertas.Add("TIPO_DOCUMENTO_REQUER_REVISAO");
+            if (!tipoDocumento.Confirmado)
+                resultado.Validacao.Alertas.Add("TIPO_DOCUMENTO_NAO_CONFIRMADO");
+            resultado.Processamento.ModeloUtilizado = modelo;
+            resultado.Processamento.VersaoExtrator = versaoExtrator;
+            resultado.Processamento.ProcessadoEm = DateTime.UtcNow;
+        }
+
         private static StatusExtracao DefinirStatus(ResultadoIdentificacaoDocumentoDto resultado)
         {
             if (!resultado.Validacao.ArquivoLegivel ||
@@ -344,49 +432,58 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                     : StatusExtracao.Concluido;
         }
 
-        private static ResultadoIdentificacaoDocumentoDto DesserializarResultado(
+        private static ResultadoDocumentoPadronizadoDto DesserializarResultado(
             string json, bool reutilizado)
         {
-            var result = JsonSerializer.Deserialize<ResultadoIdentificacaoDocumentoDto>(
+            var result = JsonSerializer.Deserialize<ResultadoDocumentoPadronizadoDto>(
                 json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
             result.ResultadoReutilizado = reutilizado;
             return result;
         }
 
-        private static ResultadoIdentificacaoDocumentoDto CriarRespostaProcessando(
+        private static ResultadoDocumentoPadronizadoDto CriarRespostaProcessando(
             Documento documento, DocumentoExtracao extracao, string hash) =>
             new()
             {
                 DocumentoId = documento.Id,
-                Status = extracao.Status.ToString(),
+                DocumentoExtracaoId = extracao.Id,
                 ResultadoReutilizado = true,
-                Classificacao = { TipoInformado = extracao.TipoDocumentoSolicitado },
+                TipoDocumento =
+                {
+                    Id = extracao.TipoDocumentoId,
+                    SchemaId = extracao.TipoDocumentoSchemaId,
+                    SchemaVersao = extracao.VersaoSchema,
+                    Similaridade = extracao.SimilaridadeTipo ?? 0m,
+                    TipoReutilizado = extracao.TipoReutilizado
+                },
+                Validacao =
+                {
+                    SchemaAplicado = false,
+                    DadosObrigatoriosEncontrados = false,
+                    RequerRevisaoHumana = false
+                },
                 Processamento =
                 {
-                    HashSha256 = hash,
-                    VersaoSchema = extracao.VersaoSchema,
                     VersaoExtrator = extracao.VersaoExtrator
                 }
             };
 
-        private static ResultadoIdentificacaoDocumentoDto CriarRespostaErro(
+        private static ResultadoDocumentoPadronizadoDto CriarRespostaErro(
             Documento documento, DocumentoExtracao extracao, string hash,
             string versaoSchema, string versaoExtrator) =>
             new()
             {
                 DocumentoId = documento.Id,
-                Status = StatusExtracao.Erro.ToString(),
+                DocumentoExtracaoId = extracao.Id,
                 ResultadoReutilizado = false,
-                Classificacao = { TipoInformado = extracao.TipoDocumentoSolicitado },
                 Validacao =
                 {
+                    SchemaAplicado = false,
                     RequerRevisaoHumana = true,
                     Alertas = { extracao.ErroCodigo ?? "ERRO_PROCESSAMENTO" }
                 },
                 Processamento =
                 {
-                    HashSha256 = hash,
-                    VersaoSchema = versaoSchema,
                     VersaoExtrator = versaoExtrator
                 }
             };
@@ -426,15 +523,15 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 _ => "identificacao"
             };
 
-        private static TipoDocumento MapearTipoConhecido(string tipo) =>
+        private static TipoDocumentoLegado MapearTipoConhecido(string tipo) =>
             NormalizarTipo(tipo) switch
             {
-                "cnh" => TipoDocumento.CNH,
-                "rg" => TipoDocumento.RG,
-                "cpf" => TipoDocumento.CPF,
-                "cin" => TipoDocumento.RG,
-                "passaporte" => TipoDocumento.Outros,
-                _ => TipoDocumento.Outros
+                "cnh" => TipoDocumentoLegado.CNH,
+                "rg" => TipoDocumentoLegado.RG,
+                "cpf" => TipoDocumentoLegado.CPF,
+                "cin" => TipoDocumentoLegado.RG,
+                "passaporte" => TipoDocumentoLegado.Outros,
+                _ => TipoDocumentoLegado.Outros
             };
 
         private static bool? DocumentoVencido(string? dataValidade) =>

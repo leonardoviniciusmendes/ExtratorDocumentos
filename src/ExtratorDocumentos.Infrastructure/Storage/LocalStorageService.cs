@@ -108,28 +108,28 @@ namespace ExtratorDocumentos.Infrastructure.Storage
             return normalizado.Length == tamanho ? normalizado : null;
         }
 
-        private static string NormalizarTipoDocumento(TipoDocumento tipo) => tipo switch
+        private static string NormalizarTipoDocumento(TipoDocumentoLegado tipo) => tipo switch
         {
-            TipoDocumento.RG => "rg",
-            TipoDocumento.CPF => "cpf",
-            TipoDocumento.CNH => "cnh",
-            TipoDocumento.ComprovanteResidencia => "comprovante-residencia",
-            TipoDocumento.ContaLuz => "conta-luz",
-            TipoDocumento.CertidaoNascimento => "certidao-nascimento",
-            TipoDocumento.CertidaoCasamento => "certidao-casamento",
-            TipoDocumento.ContratoSocial => "contrato-social",
-            TipoDocumento.CartaoCNPJ => "cartao-cnpj",
-            TipoDocumento.ContaAgua => "conta-agua",
-            TipoDocumento.ContaTelefone => "conta-telefone",
-            TipoDocumento.ContaInternet => "conta-internet",
-            TipoDocumento.ContaGas => "conta-gas",
-            TipoDocumento.FaturaCartaoCredito => "fatura-cartao-credito",
-            TipoDocumento.ExtratoBancario => "extrato-bancario",
-            TipoDocumento.ContratoLocacao => "contrato-locacao",
-            TipoDocumento.IPTU => "iptu",
-            TipoDocumento.Elegibilidade => "elegibilidade",
-            TipoDocumento.FichaAssociativa => "ficha-associativa",
-            TipoDocumento.DocumentoOficialComSelfie => "documento-oficial-com-selfie",
+            TipoDocumentoLegado.RG => "rg",
+            TipoDocumentoLegado.CPF => "cpf",
+            TipoDocumentoLegado.CNH => "cnh",
+            TipoDocumentoLegado.ComprovanteResidencia => "comprovante-residencia",
+            TipoDocumentoLegado.ContaLuz => "conta-luz",
+            TipoDocumentoLegado.CertidaoNascimento => "certidao-nascimento",
+            TipoDocumentoLegado.CertidaoCasamento => "certidao-casamento",
+            TipoDocumentoLegado.ContratoSocial => "contrato-social",
+            TipoDocumentoLegado.CartaoCNPJ => "cartao-cnpj",
+            TipoDocumentoLegado.ContaAgua => "conta-agua",
+            TipoDocumentoLegado.ContaTelefone => "conta-telefone",
+            TipoDocumentoLegado.ContaInternet => "conta-internet",
+            TipoDocumentoLegado.ContaGas => "conta-gas",
+            TipoDocumentoLegado.FaturaCartaoCredito => "fatura-cartao-credito",
+            TipoDocumentoLegado.ExtratoBancario => "extrato-bancario",
+            TipoDocumentoLegado.ContratoLocacao => "contrato-locacao",
+            TipoDocumentoLegado.IPTU => "iptu",
+            TipoDocumentoLegado.Elegibilidade => "elegibilidade",
+            TipoDocumentoLegado.FichaAssociativa => "ficha-associativa",
+            TipoDocumentoLegado.DocumentoOficialComSelfie => "documento-oficial-com-selfie",
             _ => "outros"
         };
     }

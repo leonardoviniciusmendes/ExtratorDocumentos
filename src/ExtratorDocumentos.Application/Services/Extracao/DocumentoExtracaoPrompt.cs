@@ -4,7 +4,7 @@ namespace ExtratorDocumentos.Application.Services.Extracao
 {
     internal static class DocumentoExtracaoPrompt
     {
-        public static string Criar(TipoDocumento tipo) => $"""
+        public static string Criar(TipoDocumentoLegado tipo) => $"""
             Extraia os dados de identificacao deste documento brasileiro do tipo {tipo}.
             Responda somente JSON valido, sem markdown. Use null quando ausente.
             Datas em yyyy-MM-dd. CPF/CNPJ somente digitos. confianca entre 0 e 100.

@@ -1,6 +1,6 @@
 namespace ExtratorDocumentos.Domain
 {
-    public enum TipoDocumento
+    public enum TipoDocumentoLegado
     {
         RG = 0, CPF = 1, CNH = 2, ComprovanteResidencia = 3, ContaLuz = 4,
         CertidaoNascimento = 5, CertidaoCasamento = 6, ContratoSocial = 7,
@@ -48,7 +48,7 @@ namespace ExtratorDocumentos.Domain
         public long TamanhoBytes { get; set; }
         public PapelDocumento Papel { get; set; } = PapelDocumento.Titular;
         public TipoParentesco TipoParentesco { get; set; } = TipoParentesco.Titular;
-        public TipoDocumento Tipo { get; set; }
+        public TipoDocumentoLegado Tipo { get; set; }
         public StatusDocumento Status { get; set; } = StatusDocumento.Pendente;
         public string? Observacoes { get; set; }
         public int VersaoAtual { get; set; } = 1;
@@ -59,7 +59,7 @@ namespace ExtratorDocumentos.Domain
         public StatusExtracao StatusExtracao { get; set; } = StatusExtracao.Pendente;
         public string? ErroExtracao { get; set; }
         public DateTime? ExtraidoEm { get; set; }
-        public TipoDocumento? TipoDocumentoIdentificado { get; set; }
+        public TipoDocumentoLegado? TipoDocumentoIdentificado { get; set; }
         public decimal? ConfiancaIdentificacao { get; set; }
         public string? ResultadoIdentificacaoJson { get; set; }
         public string? ResultadoExtracaoJson { get; set; }
@@ -151,12 +151,16 @@ namespace ExtratorDocumentos.Domain
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid DocumentoId { get; set; }
         public Documento? Documento { get; set; }
+        public Guid? TipoDocumentoId { get; set; }
+        public Guid? TipoDocumentoSchemaId { get; set; }
         public string TipoDocumentoSolicitado { get; set; } = string.Empty;
         public string? TipoDocumentoIdentificado { get; set; }
         public string VersaoSchema { get; set; } = string.Empty;
         public string VersaoExtrator { get; set; } = string.Empty;
         public StatusExtracao Status { get; set; } = StatusExtracao.Pendente;
         public decimal? Confianca { get; set; }
+        public decimal? SimilaridadeTipo { get; set; }
+        public bool TipoReutilizado { get; set; }
         public string? ResultadoJson { get; set; }
         public string? ModeloIdentificacao { get; set; }
         public string? ModeloExtracao { get; set; }
@@ -165,6 +169,66 @@ namespace ExtratorDocumentos.Domain
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
         public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
         public DateTime? ProcessadoEm { get; set; }
+        public TipoDocumento? TipoDocumento { get; set; }
+        public TipoDocumentoSchema? TipoDocumentoSchema { get; set; }
         public ICollection<UsoOpenRouter> UsosOpenRouter { get; set; } = new List<UsoOpenRouter>();
+    }
+
+    public class TipoDocumento
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Codigo { get; set; } = string.Empty;
+        public string Nome { get; set; } = string.Empty;
+        public string? Descricao { get; set; }
+        public bool Ativo { get; set; } = true;
+        public bool Confirmado { get; set; }
+        public string? AssinaturaEstruturalJson { get; set; }
+        public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+        public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+        public ICollection<TipoDocumentoSchema> Schemas { get; set; } = new List<TipoDocumentoSchema>();
+        public ICollection<TipoDocumentoCampoSugerido> CamposSugeridos { get; set; } = new List<TipoDocumentoCampoSugerido>();
+        public ICollection<DocumentoExtracao> Extracoes { get; set; } = new List<DocumentoExtracao>();
+    }
+
+    public class TipoDocumentoSchema
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid TipoDocumentoId { get; set; }
+        public string Versao { get; set; } = "1.0";
+        public string SchemaJson { get; set; } = "{}";
+        public bool Ativo { get; set; } = true;
+        public bool GeradoAutomaticamente { get; set; } = true;
+        public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+        public TipoDocumento TipoDocumento { get; set; } = null!;
+        public ICollection<TipoDocumentoCampo> Campos { get; set; } = new List<TipoDocumentoCampo>();
+        public ICollection<DocumentoExtracao> Extracoes { get; set; } = new List<DocumentoExtracao>();
+    }
+
+    public class TipoDocumentoCampo
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid TipoDocumentoSchemaId { get; set; }
+        public string Chave { get; set; } = string.Empty;
+        public string NomeExibicao { get; set; } = string.Empty;
+        public string TipoDado { get; set; } = "texto";
+        public bool Obrigatorio { get; set; }
+        public string? AliasesJson { get; set; }
+        public string? RegraNormalizacao { get; set; }
+        public string? RegraValidacao { get; set; }
+        public int Ordem { get; set; }
+        public TipoDocumentoSchema Schema { get; set; } = null!;
+    }
+
+    public class TipoDocumentoCampoSugerido
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid TipoDocumentoId { get; set; }
+        public string Chave { get; set; } = string.Empty;
+        public string TipoDado { get; set; } = "texto";
+        public int QuantidadeOcorrencias { get; set; }
+        public bool Aprovado { get; set; }
+        public DateTime PrimeiraOcorrenciaEm { get; set; } = DateTime.UtcNow;
+        public DateTime UltimaOcorrenciaEm { get; set; } = DateTime.UtcNow;
+        public TipoDocumento TipoDocumento { get; set; } = null!;
     }
 }

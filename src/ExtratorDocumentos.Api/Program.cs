@@ -73,6 +73,16 @@ builder.Services.AddScoped<IOpenRouterModelCandidateSelector>(
     sp => sp.GetRequiredService<OpenRouterModelSelector>());
 builder.Services.AddScoped<IProcessadorDocumentoIdentificacaoService,
     ProcessadorDocumentoIdentificacaoService>();
+builder.Services.AddScoped<IAssinaturaEstruturalDocumentoService,
+    AssinaturaEstruturalDocumentoService>();
+builder.Services.AddScoped<IIdentificadorTipoDocumentoService,
+    IdentificadorTipoDocumentoService>();
+builder.Services.AddScoped<IGeradorSchemaDocumentoService,
+    GeradorSchemaDocumentoService>();
+builder.Services.AddScoped<IAplicadorSchemaDocumentoService,
+    AplicadorSchemaDocumentoService>();
+builder.Services.AddScoped<ITipoDocumentoAprendizadoService,
+    TipoDocumentoAprendizadoService>();
 builder.Services.AddHttpClient<IOpenRouterPipelineClient, OpenRouterPipelineClient>(client =>
 {
     var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]

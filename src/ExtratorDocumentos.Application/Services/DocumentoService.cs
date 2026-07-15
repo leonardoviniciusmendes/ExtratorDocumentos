@@ -22,7 +22,7 @@ namespace ExtratorDocumentos.Application.Services
 
         public async Task<CriarDocumentoResult> CriarAsync(string? cpf, string? cpfDependente,
             string? cnpj, PapelDocumento papel, TipoParentesco tipoParentesco,
-            TipoDocumento tipo, string? observacoes,
+            TipoDocumentoLegado tipo, string? observacoes,
             string nomeArquivo, string tipoConteudo, Stream arquivo, CancellationToken cancellationToken)
         {
             if (!Enum.IsDefined(papel))
@@ -164,7 +164,7 @@ namespace ExtratorDocumentos.Application.Services
         }
 
         private Task<Documento?> BuscarDocumentoExistenteAsync(string? cpf, string? cpfDependente,
-            string? cnpj, PapelDocumento papel, TipoParentesco tipoParentesco, TipoDocumento tipo,
+            string? cnpj, PapelDocumento papel, TipoParentesco tipoParentesco, TipoDocumentoLegado tipo,
             string hash, CancellationToken cancellationToken) =>
             _db.Documentos.Include(x => x.Versoes)
                 .Where(x => !x.Excluido &&
@@ -239,16 +239,16 @@ namespace ExtratorDocumentos.Application.Services
             return normalizado;
         }
 
-        private static bool EhDocumentoEndereco(TipoDocumento tipo) =>
-            tipo is TipoDocumento.ComprovanteResidencia
-                or TipoDocumento.ContaLuz
-                or TipoDocumento.ContaAgua
-                or TipoDocumento.ContaTelefone
-                or TipoDocumento.ContaInternet
-                or TipoDocumento.ContaGas
-                or TipoDocumento.FaturaCartaoCredito
-                or TipoDocumento.ExtratoBancario
-                or TipoDocumento.ContratoLocacao
-                or TipoDocumento.IPTU;
+        private static bool EhDocumentoEndereco(TipoDocumentoLegado tipo) =>
+            tipo is TipoDocumentoLegado.ComprovanteResidencia
+                or TipoDocumentoLegado.ContaLuz
+                or TipoDocumentoLegado.ContaAgua
+                or TipoDocumentoLegado.ContaTelefone
+                or TipoDocumentoLegado.ContaInternet
+                or TipoDocumentoLegado.ContaGas
+                or TipoDocumentoLegado.FaturaCartaoCredito
+                or TipoDocumentoLegado.ExtratoBancario
+                or TipoDocumentoLegado.ContratoLocacao
+                or TipoDocumentoLegado.IPTU;
     }
 }

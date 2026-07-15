@@ -5,7 +5,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
 {
     public interface IProcessadorDocumentoIdentificacaoService
     {
-        Task<ResultadoIdentificacaoDocumentoDto> ProcessarAsync(
+        Task<ResultadoDocumentoPadronizadoDto> ProcessarAsync(
             TipoDocumentoProcessamento tipoDocumento,
             ArquivoDocumento arquivo,
             CancellationToken cancellationToken);

@@ -18,7 +18,7 @@ namespace ExtratorDocumentos.Application.Services.Extracao
             _configuration = configuration;
         }
 
-        public async Task<ExtracaoDocumentoResult?> ExtrairAsync(TipoDocumento tipo,
+        public async Task<ExtracaoDocumentoResult?> ExtrairAsync(TipoDocumentoLegado tipo,
             string nomeArquivo, string tipoConteudo, Stream conteudo,
             CancellationToken cancellationToken)
         {

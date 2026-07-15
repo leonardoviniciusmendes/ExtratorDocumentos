@@ -13,6 +13,10 @@ namespace ExtratorDocumentos.Infrastructure.Data
         public DbSet<OpenRouterModelo> OpenRouterModelos { get; set; } = null!;
         public DbSet<UsoOpenRouter> UsosOpenRouter { get; set; } = null!;
         public DbSet<DocumentoExtracao> DocumentoExtracoes { get; set; } = null!;
+        public DbSet<TipoDocumento> TiposDocumento { get; set; } = null!;
+        public DbSet<TipoDocumentoSchema> TipoDocumentoSchemas { get; set; } = null!;
+        public DbSet<TipoDocumentoCampo> TipoDocumentoCampos { get; set; } = null!;
+        public DbSet<TipoDocumentoCampoSugerido> TipoDocumentoCamposSugeridos { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -106,6 +110,7 @@ namespace ExtratorDocumentos.Infrastructure.Data
                 b.Property(x => x.VersaoSchema).IsRequired().HasMaxLength(50);
                 b.Property(x => x.VersaoExtrator).IsRequired().HasMaxLength(50);
                 b.Property(x => x.Confianca).HasPrecision(5, 2);
+                b.Property(x => x.SimilaridadeTipo).HasPrecision(5, 4);
                 b.Property(x => x.ResultadoJson).HasColumnType("longtext");
                 b.Property(x => x.ModeloIdentificacao).HasMaxLength(200);
                 b.Property(x => x.ModeloExtracao).HasMaxLength(200);
@@ -114,13 +119,78 @@ namespace ExtratorDocumentos.Infrastructure.Data
                 b.HasIndex(x => new
                 {
                     x.DocumentoId,
+                    x.TipoDocumentoId,
+                    x.TipoDocumentoSchemaId,
+                    x.VersaoExtrator
+                }).IsUnique();
+                b.HasIndex(x => new
+                {
+                    x.DocumentoId,
                     x.TipoDocumentoSolicitado,
                     x.VersaoSchema,
                     x.VersaoExtrator
-                }).IsUnique();
+                });
                 b.HasIndex(x => x.Status);
                 b.HasOne(x => x.Documento).WithMany(x => x.Extracoes)
                     .HasForeignKey(x => x.DocumentoId);
+                b.HasOne(x => x.TipoDocumento).WithMany(x => x.Extracoes)
+                    .HasForeignKey(x => x.TipoDocumentoId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                b.HasOne(x => x.TipoDocumentoSchema).WithMany(x => x.Extracoes)
+                    .HasForeignKey(x => x.TipoDocumentoSchemaId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<TipoDocumento>(b =>
+            {
+                b.ToTable("TiposDocumento");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Codigo).IsRequired().HasMaxLength(150);
+                b.Property(x => x.Nome).IsRequired().HasMaxLength(300);
+                b.Property(x => x.Descricao).HasMaxLength(2000);
+                b.Property(x => x.AssinaturaEstruturalJson).HasColumnType("longtext");
+                b.HasIndex(x => x.Codigo).IsUnique();
+                b.HasIndex(x => x.Ativo);
+                b.HasIndex(x => x.Confirmado);
+            });
+
+            modelBuilder.Entity<TipoDocumentoSchema>(b =>
+            {
+                b.ToTable("TiposDocumentoSchemas");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Versao).IsRequired().HasMaxLength(50);
+                b.Property(x => x.SchemaJson).IsRequired().HasColumnType("longtext");
+                b.HasIndex(x => new { x.TipoDocumentoId, x.Versao }).IsUnique();
+                b.HasIndex(x => new { x.TipoDocumentoId, x.Ativo });
+                b.HasOne(x => x.TipoDocumento).WithMany(x => x.Schemas)
+                    .HasForeignKey(x => x.TipoDocumentoId);
+            });
+
+            modelBuilder.Entity<TipoDocumentoCampo>(b =>
+            {
+                b.ToTable("TiposDocumentoCampos");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Chave).IsRequired().HasMaxLength(150);
+                b.Property(x => x.NomeExibicao).IsRequired().HasMaxLength(300);
+                b.Property(x => x.TipoDado).IsRequired().HasMaxLength(30);
+                b.Property(x => x.AliasesJson).HasColumnType("longtext");
+                b.Property(x => x.RegraNormalizacao).HasMaxLength(100);
+                b.Property(x => x.RegraValidacao).HasMaxLength(1000);
+                b.HasIndex(x => new { x.TipoDocumentoSchemaId, x.Chave }).IsUnique();
+                b.HasOne(x => x.Schema).WithMany(x => x.Campos)
+                    .HasForeignKey(x => x.TipoDocumentoSchemaId);
+            });
+
+            modelBuilder.Entity<TipoDocumentoCampoSugerido>(b =>
+            {
+                b.ToTable("TiposDocumentoCamposSugeridos");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Chave).IsRequired().HasMaxLength(150);
+                b.Property(x => x.TipoDado).IsRequired().HasMaxLength(30);
+                b.HasIndex(x => new { x.TipoDocumentoId, x.Chave }).IsUnique();
+                b.HasIndex(x => x.Aprovado);
+                b.HasOne(x => x.TipoDocumento).WithMany(x => x.CamposSugeridos)
+                    .HasForeignKey(x => x.TipoDocumentoId);
             });
         }
     }
