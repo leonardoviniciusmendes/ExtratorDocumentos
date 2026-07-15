@@ -3,6 +3,7 @@ using System;
 using ExtratorDocumentos.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ExtratorDocumentos.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260715150127_PipelineInteligenteDocumentos")]
+    partial class PipelineInteligenteDocumentos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -157,79 +160,6 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                     b.ToTable("Documentos");
                 });
 
-            modelBuilder.Entity("ExtratorDocumentos.Domain.DocumentoExtracao", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("AtualizadoEm")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<decimal?>("Confianca")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("DocumentoId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("ErroCodigo")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("ErroMensagem")
-                        .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
-
-                    b.Property<string>("ModeloExtracao")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("ModeloIdentificacao")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<DateTime?>("ProcessadoEm")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("ResultadoJson")
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TipoDocumentoIdentificado")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("TipoDocumentoSolicitado")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("VersaoExtrator")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("VersaoSchema")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("DocumentoId", "TipoDocumentoSolicitado", "VersaoSchema", "VersaoExtrator")
-                        .IsUnique();
-
-                    b.ToTable("DocumentoExtracoes");
-                });
-
             modelBuilder.Entity("ExtratorDocumentos.Domain.DocumentoHistorico", b =>
                 {
                     b.Property<Guid>("Id")
@@ -313,6 +243,200 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("DocumentoVersoes");
+                });
+
+            modelBuilder.Entity("ExtratorDocumentos.Domain.EnderecoExtraido", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Bairro")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Cep")
+                        .HasMaxLength(8)
+                        .HasColumnType("varchar(8)");
+
+                    b.Property<string>("Cidade")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Cnpj")
+                        .HasMaxLength(14)
+                        .HasColumnType("varchar(14)");
+
+                    b.Property<string>("Complemento")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Cpf")
+                        .HasMaxLength(11)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("DocumentoId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("DocumentoVersaoId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("FonteDocumento")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Logradouro")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Numero")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Uf")
+                        .HasMaxLength(2)
+                        .HasColumnType("varchar(2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Cnpj");
+
+                    b.HasIndex("Cpf");
+
+                    b.HasIndex("DocumentoId");
+
+                    b.HasIndex("DocumentoVersaoId");
+
+                    b.ToTable("EnderecosExtraidos");
+                });
+
+            modelBuilder.Entity("ExtratorDocumentos.Domain.IdentificacaoExtraida", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("CategoriaCnh")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Cnpj")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<decimal>("Confianca")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Cpf")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DadosBrutosJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("DataEmissao")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DataNascimento")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DataPrimeiraHabilitacao")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DataVencimento")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("DocumentoId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("DocumentoVersaoId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("EmissorDocumento")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Folha")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Livro")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("LocalEmissao")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("MatriculaCertidao")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("MesReferencia")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Nacionalidade")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Naturalidade")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NomeCompleto")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NomeFantasia")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NomeMae")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NomePai")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NumeroCliente")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NumeroCnh")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NumeroInstalacao")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("NumeroRenach")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ObservacoesCnh")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("OrgaoEmissor")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Provedor")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("RazaoSocial")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Rg")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Termo")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("UfEmissao")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ValidadeCnh")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Cnpj");
+
+                    b.HasIndex("Cpf");
+
+                    b.HasIndex("DocumentoId")
+                        .IsUnique();
+
+                    b.HasIndex("DocumentoVersaoId");
+
+                    b.ToTable("IdentificacoesExtraidas");
                 });
 
             modelBuilder.Entity("ExtratorDocumentos.Domain.OpenRouterModelo", b =>
@@ -416,9 +540,6 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                         .HasPrecision(18, 8)
                         .HasColumnType("decimal(18,8)");
 
-                    b.Property<Guid?>("DocumentoExtracaoId")
-                        .HasColumnType("char(36)");
-
                     b.Property<Guid>("DocumentoId")
                         .HasColumnType("char(36)");
 
@@ -454,8 +575,6 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DocumentoExtracaoId");
-
                     b.HasIndex("DocumentoId");
 
                     b.HasIndex("ModeloId");
@@ -463,17 +582,6 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                     b.HasIndex("Objetivo");
 
                     b.ToTable("UsosOpenRouter");
-                });
-
-            modelBuilder.Entity("ExtratorDocumentos.Domain.DocumentoExtracao", b =>
-                {
-                    b.HasOne("ExtratorDocumentos.Domain.Documento", "Documento")
-                        .WithMany("Extracoes")
-                        .HasForeignKey("DocumentoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Documento");
                 });
 
             modelBuilder.Entity("ExtratorDocumentos.Domain.DocumentoHistorico", b =>
@@ -498,13 +606,46 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                     b.Navigation("Documento");
                 });
 
+            modelBuilder.Entity("ExtratorDocumentos.Domain.EnderecoExtraido", b =>
+                {
+                    b.HasOne("ExtratorDocumentos.Domain.Documento", "Documento")
+                        .WithMany("Enderecos")
+                        .HasForeignKey("DocumentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ExtratorDocumentos.Domain.DocumentoVersao", "DocumentoVersao")
+                        .WithMany()
+                        .HasForeignKey("DocumentoVersaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Documento");
+
+                    b.Navigation("DocumentoVersao");
+                });
+
+            modelBuilder.Entity("ExtratorDocumentos.Domain.IdentificacaoExtraida", b =>
+                {
+                    b.HasOne("ExtratorDocumentos.Domain.Documento", "Documento")
+                        .WithOne("Identificacao")
+                        .HasForeignKey("ExtratorDocumentos.Domain.IdentificacaoExtraida", "DocumentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ExtratorDocumentos.Domain.DocumentoVersao", "DocumentoVersao")
+                        .WithMany()
+                        .HasForeignKey("DocumentoVersaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Documento");
+
+                    b.Navigation("DocumentoVersao");
+                });
+
             modelBuilder.Entity("ExtratorDocumentos.Domain.UsoOpenRouter", b =>
                 {
-                    b.HasOne("ExtratorDocumentos.Domain.DocumentoExtracao", "DocumentoExtracao")
-                        .WithMany("UsosOpenRouter")
-                        .HasForeignKey("DocumentoExtracaoId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("ExtratorDocumentos.Domain.Documento", "Documento")
                         .WithMany("UsosOpenRouter")
                         .HasForeignKey("DocumentoId")
@@ -512,24 +653,19 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Documento");
-
-                    b.Navigation("DocumentoExtracao");
                 });
 
             modelBuilder.Entity("ExtratorDocumentos.Domain.Documento", b =>
                 {
-                    b.Navigation("Extracoes");
+                    b.Navigation("Enderecos");
 
                     b.Navigation("Historico");
+
+                    b.Navigation("Identificacao");
 
                     b.Navigation("UsosOpenRouter");
 
                     b.Navigation("Versoes");
-                });
-
-            modelBuilder.Entity("ExtratorDocumentos.Domain.DocumentoExtracao", b =>
-                {
-                    b.Navigation("UsosOpenRouter");
                 });
 #pragma warning restore 612, 618
         }

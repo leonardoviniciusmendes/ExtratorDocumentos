@@ -1,8 +1,6 @@
-using ExtratorDocumentos.Application.Jobs;
 using ExtratorDocumentos.Application.Services.Extracao;
 using ExtratorDocumentos.Infrastructure.Data;
 using ExtratorDocumentos.Infrastructure.Storage;
-using ExtratorDocumentos.Worker;
 using Microsoft.EntityFrameworkCore;
 
 var builder = Host.CreateDefaultBuilder(args)
@@ -28,9 +26,6 @@ var builder = Host.CreateDefaultBuilder(args)
         });
         services.AddScoped<IDocumentoExtracaoProvider>(
             sp => sp.GetRequiredService<OpenRouterDocumentoExtracaoProvider>());
-        services.AddScoped<DocumentoExtracaoService>();
-        services.AddScoped<ProcessarDocumentosPendentesJob>();
-        services.AddHostedService<WorkerService>();
     });
 
 await builder.RunConsoleAsync();

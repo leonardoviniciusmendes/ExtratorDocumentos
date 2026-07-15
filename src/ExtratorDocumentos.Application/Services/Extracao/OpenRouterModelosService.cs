@@ -66,6 +66,7 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                         Id = remoto.Id,
                         Nome = remoto.Nome,
                         Objetivo = remoto.Objetivo,
+                        Descricao = remoto.Objetivo,
                         ContextoTokens = remoto.ContextoTokens,
                         AceitaArquivo = remoto.AceitaArquivo,
                         AceitaImagem = remoto.AceitaImagem,
@@ -75,6 +76,9 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                         PrecoEntradaPorMilhaoTokens = remoto.PrecoEntradaPorMilhaoTokens,
                         PrecoSaidaPorMilhaoTokens = remoto.PrecoSaidaPorMilhaoTokens,
                         Disponivel = true,
+                        Ativo = true,
+                        Permitido = true,
+                        Bloqueado = false,
                         PrimeiroVistoEm = agora,
                         UltimoVistoEm = agora,
                         AtualizadoEm = agora
@@ -85,6 +89,7 @@ namespace ExtratorDocumentos.Application.Services.Extracao
 
                 local.Nome = remoto.Nome;
                 local.Objetivo = remoto.Objetivo;
+                local.Descricao = remoto.Objetivo;
                 local.ContextoTokens = remoto.ContextoTokens;
                 local.AceitaArquivo = remoto.AceitaArquivo;
                 local.AceitaImagem = remoto.AceitaImagem;
