@@ -79,10 +79,11 @@ public sealed class TiposDocumentoController : ControllerBase
     {
         var schemas = await db.TipoDocumentoSchemas
             .AsNoTracking()
+            .Include(x => x.Campos)
             .Where(x => x.TipoDocumentoId == id)
             .OrderByDescending(x => x.CriadoEm)
             .ToListAsync(cancellationToken);
-        return Ok(schemas);
+        return Ok(schemas.Select(ToSchemaDto));
     }
 
     [HttpGet("{tipoDocumento}/schemas")]
@@ -95,10 +96,11 @@ public sealed class TiposDocumentoController : ControllerBase
         if (tipo == null) return NotFound();
         var schemas = await db.TipoDocumentoSchemas
             .AsNoTracking()
+            .Include(x => x.Campos)
             .Where(x => x.TipoDocumentoId == tipo.Id)
             .OrderByDescending(x => x.CriadoEm)
             .ToListAsync(cancellationToken);
-        return Ok(schemas);
+        return Ok(schemas.Select(ToSchemaDto));
     }
 
     [HttpGet("{id:guid}/schemas/{schemaId:guid}")]
@@ -110,10 +112,10 @@ public sealed class TiposDocumentoController : ControllerBase
     {
         var schema = await db.TipoDocumentoSchemas
             .AsNoTracking()
-            .Include(x => x.Campos.OrderBy(c => c.Ordem))
+            .Include(x => x.Campos)
             .FirstOrDefaultAsync(x => x.TipoDocumentoId == id && x.Id == schemaId,
                 cancellationToken);
-        return schema == null ? NotFound() : Ok(schema);
+        return schema == null ? NotFound() : Ok(ToSchemaDto(schema));
     }
 
     [HttpGet("{tipoDocumento}/schemas/{schemaId:guid}")]
@@ -127,10 +129,10 @@ public sealed class TiposDocumentoController : ControllerBase
         if (tipo == null) return NotFound();
         var schema = await db.TipoDocumentoSchemas
             .AsNoTracking()
-            .Include(x => x.Campos.OrderBy(c => c.Ordem))
+            .Include(x => x.Campos)
             .FirstOrDefaultAsync(x => x.TipoDocumentoId == tipo.Id && x.Id == schemaId,
                 cancellationToken);
-        return schema == null ? NotFound() : Ok(schema);
+        return schema == null ? NotFound() : Ok(ToSchemaDto(schema));
     }
 
     [HttpPut("{tipoDocumento}/schemas/{schemaId:guid}")]
@@ -259,6 +261,21 @@ public sealed class TiposDocumentoController : ControllerBase
             cancellationToken);
         if (tipo == null) return NotFound();
         tipo.Ativo = false;
+        tipo.AtualizadoEm = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return Ok(tipo);
+    }
+
+    [HttpPost("{id:guid}/ativar")]
+    public async Task<IActionResult> Ativar(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var tipo = await db.TiposDocumento.FirstOrDefaultAsync(x => x.Id == id,
+            cancellationToken);
+        if (tipo == null) return NotFound();
+        tipo.Ativo = true;
         tipo.AtualizadoEm = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return Ok(tipo);
@@ -399,6 +416,110 @@ public sealed class TiposDocumentoController : ControllerBase
             result.AddRange(CriarCampos(schemaId, campo.CamposFilhos, entidade.Id));
             if (campo.ItemLista?.CamposFilhos.Count > 0)
                 result.AddRange(CriarCampos(schemaId, campo.ItemLista.CamposFilhos, entidade.Id));
+        }
+
+        return result;
+    }
+
+    private static TipoDocumentoSchemaDto ToSchemaDto(TipoDocumentoSchema schema)
+    {
+        var dto = DesserializarSchema(schema.SchemaJson);
+        dto.Id = schema.Id;
+        dto.Versao = schema.Versao;
+        dto.Status = schema.Status.ToString();
+        dto.GeradoAutomaticamente = schema.GeradoAutomaticamente;
+
+        if (dto.Campos.Count == 0 && schema.Campos.Count > 0)
+            dto.Campos = CamposDto(schema.Campos, null);
+
+        if (dto.JsonExemplo.Count == 0 && dto.Campos.Count > 0)
+            dto.JsonExemplo = CriarJsonExemplo(dto.Campos);
+
+        return dto;
+    }
+
+    private static TipoDocumentoSchemaDto DesserializarSchema(string schemaJson)
+    {
+        if (string.IsNullOrWhiteSpace(schemaJson))
+            return new TipoDocumentoSchemaDto();
+
+        return JsonSerializer.Deserialize<TipoDocumentoSchemaDto>(
+            schemaJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ??
+            new TipoDocumentoSchemaDto();
+    }
+
+    private static List<CampoSchemaSugeridoDto> CamposDto(
+        IEnumerable<TipoDocumentoCampo> campos, Guid? paiId)
+    {
+        return campos
+            .Where(x => x.CampoPaiId == paiId)
+            .OrderBy(x => x.Ordem)
+            .Select(campo =>
+            {
+                var dto = new CampoSchemaSugeridoDto
+                {
+                    Chave = campo.Chave,
+                    NomeExibicao = campo.NomeExibicao,
+                    Descricao = campo.Descricao,
+                    TipoDado = campo.TipoDado,
+                    ObrigatorioSugerido = campo.ObrigatorioSugerido || campo.Obrigatorio,
+                    OrigemSugestao = string.IsNullOrWhiteSpace(campo.OrigemSugestao)
+                        ? "conhecimento_tipo"
+                        : campo.OrigemSugestao,
+                    EncontradoNoArquivo = campo.EncontradoNoArquivo,
+                    Confianca = campo.Confianca,
+                    Aliases = LerAliases(campo.AliasesJson),
+                    RegraNormalizacao = campo.RegraNormalizacao,
+                    RegraValidacao = campo.RegraValidacao,
+                    Ordem = campo.Ordem,
+                    CamposFilhos = CamposDto(campos, campo.Id)
+                };
+
+                if (campo.TipoDado == "lista")
+                {
+                    dto.ItemLista = new CampoSchemaSugeridoDto
+                    {
+                        Chave = "item",
+                        NomeExibicao = "Item",
+                        TipoDado = campo.ItemTipoDado ?? "objeto",
+                        CamposFilhos = CamposDto(campos, campo.Id)
+                    };
+                    dto.CamposFilhos = new List<CampoSchemaSugeridoDto>();
+                }
+
+                return dto;
+            })
+            .ToList();
+    }
+
+    private static List<string> LerAliases(string? aliasesJson)
+    {
+        if (string.IsNullOrWhiteSpace(aliasesJson))
+            return new List<string>();
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(aliasesJson) ??
+                new List<string>();
+        }
+        catch (JsonException)
+        {
+            return new List<string>();
+        }
+    }
+
+    private static Dictionary<string, object?> CriarJsonExemplo(
+        IEnumerable<CampoSchemaSugeridoDto> campos)
+    {
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var campo in campos.OrderBy(x => x.Ordem))
+        {
+            result[campo.Chave] = campo.TipoDado switch
+            {
+                "objeto" => CriarJsonExemplo(campo.CamposFilhos),
+                "lista" => Array.Empty<object>(),
+                _ => null
+            };
         }
 
         return result;
