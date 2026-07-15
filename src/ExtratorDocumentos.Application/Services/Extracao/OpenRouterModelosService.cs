@@ -1,6 +1,10 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using ExtratorDocumentos.Application.Dtos.Documentos;
+using ExtratorDocumentos.Application.Jobs;
+using ExtratorDocumentos.Domain;
+using ExtratorDocumentos.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace ExtratorDocumentos.Application.Services.Extracao
@@ -9,14 +13,108 @@ namespace ExtratorDocumentos.Application.Services.Extracao
     {
         private readonly HttpClient _http;
         private readonly IConfiguration _configuration;
+        private readonly AppDbContext _db;
 
-        public OpenRouterModelosService(HttpClient http, IConfiguration configuration)
+        public OpenRouterModelosService(HttpClient http, IConfiguration configuration,
+            AppDbContext db)
         {
             _http = http;
             _configuration = configuration;
+            _db = db;
         }
 
         public async Task<IReadOnlyList<OpenRouterModeloResponse>> ListarAsync(
+            bool apenasCompativeis, CancellationToken cancellationToken)
+        {
+            var query = _db.OpenRouterModelos.AsNoTracking().AsQueryable();
+            if (apenasCompativeis)
+                query = query.Where(x => x.Disponivel &&
+                    (x.AceitaArquivo || x.AceitaImagem) &&
+                    x.SaidaTexto &&
+                    x.SuportaJson);
+
+            return await query
+                .OrderByDescending(x => x.Disponivel)
+                .ThenByDescending(x => x.AceitaArquivo)
+                .ThenByDescending(x => x.AceitaImagem)
+                .ThenByDescending(x => x.SuportaStructuredOutputs)
+                .ThenBy(x => x.PrecoEntradaPorMilhaoTokens ?? decimal.MaxValue)
+                .ThenBy(x => x.Id)
+                .Select(x => ToResponse(x))
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<AtualizarOpenRouterModelosResult> SincronizarAsync(
+            CancellationToken cancellationToken)
+        {
+            var agora = DateTime.UtcNow;
+            var modelosRemotos = await ConsultarRemotoAsync(false, cancellationToken);
+            var idsRemotos = modelosRemotos.Select(x => x.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var modelosLocais = await _db.OpenRouterModelos.ToDictionaryAsync(
+                x => x.Id, StringComparer.OrdinalIgnoreCase, cancellationToken);
+            var novos = 0;
+            var atualizados = 0;
+            var indisponiveis = 0;
+
+            foreach (var remoto in modelosRemotos)
+            {
+                if (!modelosLocais.TryGetValue(remoto.Id, out var local))
+                {
+                    _db.OpenRouterModelos.Add(new OpenRouterModelo
+                    {
+                        Id = remoto.Id,
+                        Nome = remoto.Nome,
+                        Objetivo = remoto.Objetivo,
+                        ContextoTokens = remoto.ContextoTokens,
+                        AceitaArquivo = remoto.AceitaArquivo,
+                        AceitaImagem = remoto.AceitaImagem,
+                        SaidaTexto = remoto.SaidaTexto,
+                        SuportaJson = remoto.SuportaJson,
+                        SuportaStructuredOutputs = remoto.SuportaStructuredOutputs,
+                        PrecoEntradaPorMilhaoTokens = remoto.PrecoEntradaPorMilhaoTokens,
+                        PrecoSaidaPorMilhaoTokens = remoto.PrecoSaidaPorMilhaoTokens,
+                        Disponivel = true,
+                        PrimeiroVistoEm = agora,
+                        UltimoVistoEm = agora,
+                        AtualizadoEm = agora
+                    });
+                    novos++;
+                    continue;
+                }
+
+                local.Nome = remoto.Nome;
+                local.Objetivo = remoto.Objetivo;
+                local.ContextoTokens = remoto.ContextoTokens;
+                local.AceitaArquivo = remoto.AceitaArquivo;
+                local.AceitaImagem = remoto.AceitaImagem;
+                local.SaidaTexto = remoto.SaidaTexto;
+                local.SuportaJson = remoto.SuportaJson;
+                local.SuportaStructuredOutputs = remoto.SuportaStructuredOutputs;
+                local.PrecoEntradaPorMilhaoTokens = remoto.PrecoEntradaPorMilhaoTokens;
+                local.PrecoSaidaPorMilhaoTokens = remoto.PrecoSaidaPorMilhaoTokens;
+                local.Disponivel = true;
+                local.UltimoVistoEm = agora;
+                local.AtualizadoEm = agora;
+                atualizados++;
+            }
+
+            foreach (var local in modelosLocais.Values.Where(x => !idsRemotos.Contains(x.Id)))
+            {
+                if (!local.Disponivel)
+                    continue;
+
+                local.Disponivel = false;
+                local.AtualizadoEm = agora;
+                indisponiveis++;
+            }
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return new AtualizarOpenRouterModelosResult(
+                modelosRemotos.Count, novos, atualizados, indisponiveis);
+        }
+
+        private async Task<IReadOnlyList<OpenRouterModeloResponse>> ConsultarRemotoAsync(
             bool apenasCompativeis, CancellationToken cancellationToken)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, "models");
@@ -60,7 +158,10 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                     suportaJson,
                     suportaStructuredOutputs,
                     ObterPrecoPorMilhaoTokens(item, "prompt"),
-                    ObterPrecoPorMilhaoTokens(item, "completion")));
+                    ObterPrecoPorMilhaoTokens(item, "completion"),
+                    true,
+                    null,
+                    null));
             }
 
             return modelos
@@ -71,6 +172,13 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                 .ThenBy(x => x.Id)
                 .ToList();
         }
+
+        private static OpenRouterModeloResponse ToResponse(OpenRouterModelo x) =>
+            new(x.Id, x.Nome, x.Objetivo, x.ContextoTokens, x.AceitaArquivo,
+                x.AceitaImagem, x.SaidaTexto, x.SuportaJson,
+                x.SuportaStructuredOutputs, x.PrecoEntradaPorMilhaoTokens,
+                x.PrecoSaidaPorMilhaoTokens, x.Disponivel, x.UltimoVistoEm,
+                x.AtualizadoEm);
 
         private static string DefinirObjetivo(string id, bool aceitaArquivo,
             bool aceitaImagem, bool suportaStructuredOutputs)

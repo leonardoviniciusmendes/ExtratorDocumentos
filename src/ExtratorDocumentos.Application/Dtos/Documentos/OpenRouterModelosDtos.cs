@@ -11,5 +11,8 @@ namespace ExtratorDocumentos.Application.Dtos.Documentos
         bool SuportaJson,
         bool SuportaStructuredOutputs,
         decimal? PrecoEntradaPorMilhaoTokens,
-        decimal? PrecoSaidaPorMilhaoTokens);
+        decimal? PrecoSaidaPorMilhaoTokens,
+        bool Disponivel,
+        DateTime? UltimoVistoEm,
+        DateTime? AtualizadoEm);
 }

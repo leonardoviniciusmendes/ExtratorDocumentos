@@ -148,4 +148,23 @@ namespace ExtratorDocumentos.Domain
         public string? FonteDocumento { get; set; }
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     }
+
+    public class OpenRouterModelo
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Nome { get; set; } = string.Empty;
+        public string Objetivo { get; set; } = string.Empty;
+        public int? ContextoTokens { get; set; }
+        public bool AceitaArquivo { get; set; }
+        public bool AceitaImagem { get; set; }
+        public bool SaidaTexto { get; set; }
+        public bool SuportaJson { get; set; }
+        public bool SuportaStructuredOutputs { get; set; }
+        public decimal? PrecoEntradaPorMilhaoTokens { get; set; }
+        public decimal? PrecoSaidaPorMilhaoTokens { get; set; }
+        public bool Disponivel { get; set; } = true;
+        public DateTime PrimeiroVistoEm { get; set; } = DateTime.UtcNow;
+        public DateTime UltimoVistoEm { get; set; } = DateTime.UtcNow;
+        public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+    }
 }

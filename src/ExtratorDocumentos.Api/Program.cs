@@ -70,6 +70,7 @@ builder.Services.AddScoped<IDocumentoExtracaoProvider>(
     sp => sp.GetRequiredService<OpenRouterDocumentoExtracaoProvider>());
 builder.Services.AddScoped<DocumentoExtracaoService>();
 builder.Services.AddScoped<ProcessarDocumentosPendentesJob>();
+builder.Services.AddScoped<AtualizarOpenRouterModelosJob>();
 builder.Services.AddScoped<HangfireJobScheduler>();
 builder.Services.AddCors(options =>
 {
@@ -96,6 +97,12 @@ using (var scope = app.Services.CreateScope())
 
 BackgroundJob.Enqueue<HangfireJobScheduler>(
     scheduler => scheduler.ExecutarProcessamentoAsync());
+
+if (builder.Configuration.GetValue<bool?>("Jobs:OpenRouterModelos:ExecutarAoIniciar") ?? true)
+{
+    BackgroundJob.Enqueue<HangfireJobScheduler>(
+        scheduler => scheduler.ExecutarAtualizacaoOpenRouterModelosAsync());
+}
 
 if (app.Environment.IsDevelopment())
 {

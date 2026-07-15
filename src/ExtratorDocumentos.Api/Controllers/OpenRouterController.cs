@@ -15,6 +15,15 @@ public sealed class OpenRouterController : ControllerBase
         return Ok(modelos);
     }
 
+    [HttpPost("modelos/sincronizar")]
+    public async Task<IActionResult> SincronizarModelos(
+        [FromServices] OpenRouterModelosService service,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await service.SincronizarAsync(cancellationToken);
+        return Ok(resultado);
+    }
+
     [HttpGet("creditos")]
     public async Task<IActionResult> GetCreditos(
         [FromServices] OpenRouterContaService service,

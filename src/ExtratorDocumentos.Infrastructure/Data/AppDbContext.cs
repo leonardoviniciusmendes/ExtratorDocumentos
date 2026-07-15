@@ -12,6 +12,7 @@ namespace ExtratorDocumentos.Infrastructure.Data
         public DbSet<DocumentoHistorico> DocumentoHistoricos { get; set; } = null!;
         public DbSet<IdentificacaoExtraida> IdentificacoesExtraidas { get; set; } = null!;
         public DbSet<EnderecoExtraido> EnderecosExtraidos { get; set; } = null!;
+        public DbSet<OpenRouterModelo> OpenRouterModelos { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -80,6 +81,18 @@ namespace ExtratorDocumentos.Infrastructure.Data
                 b.Property(x => x.Observacao).HasMaxLength(2000);
                 b.HasIndex(x => x.DocumentoId);
                 b.HasOne(x => x.Documento).WithMany(x => x.Historico).HasForeignKey(x => x.DocumentoId);
+            });
+
+            modelBuilder.Entity<OpenRouterModelo>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).HasMaxLength(200);
+                b.Property(x => x.Nome).IsRequired().HasMaxLength(300);
+                b.Property(x => x.Objetivo).IsRequired().HasMaxLength(1000);
+                b.Property(x => x.PrecoEntradaPorMilhaoTokens).HasPrecision(18, 8);
+                b.Property(x => x.PrecoSaidaPorMilhaoTokens).HasPrecision(18, 8);
+                b.HasIndex(x => x.Disponivel);
+                b.HasIndex(x => x.UltimoVistoEm);
             });
         }
     }
