@@ -37,6 +37,7 @@ namespace ExtratorDocumentos.Infrastructure.Data
                 b.Property(x => x.HashSha256).IsRequired().HasMaxLength(64);
                 b.Property(x => x.ChaveStorage).IsRequired().HasMaxLength(500);
                 b.HasIndex(x => new { x.DocumentoId, x.Versao }).IsUnique();
+                b.HasIndex(x => x.HashSha256);
                 b.HasOne(x => x.Documento).WithMany(x => x.Versoes).HasForeignKey(x => x.DocumentoId);
             });
 

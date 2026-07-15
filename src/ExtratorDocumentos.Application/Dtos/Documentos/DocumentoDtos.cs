@@ -48,6 +48,7 @@ namespace ExtratorDocumentos.Application.Dtos.Documentos
         VinculoExtracaoResponse? Vinculo);
     public sealed record UploadDocumentoResponse(
         Guid Id,
+        bool DocumentoExistente,
         bool ExtracaoProcessada,
         DadosExtraidosResponse? DadosExtraidos,
         string ReprocessarUrl);

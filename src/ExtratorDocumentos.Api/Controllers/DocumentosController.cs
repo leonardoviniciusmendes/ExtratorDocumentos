@@ -25,22 +25,27 @@ public class DocumentosController : ControllerBase
         await using var stream = request.Arquivo.OpenReadStream();
         try
         {
-            var documento = await documentoService.CriarAsync(request.Cpf, request.CpfDependente,
+            var resultadoCriacao = await documentoService.CriarAsync(request.Cpf, request.CpfDependente,
                 request.Cnpj, request.Papel, request.TipoParentesco, request.Tipo,
                 request.Observacoes, request.Arquivo.FileName,
                 request.Arquivo.ContentType, stream, cancellationToken);
-            var extracaoProcessada = await extracaoService.ExtrairAsync(
-                documento.Id, cancellationToken);
+            var documento = resultadoCriacao.Documento;
+            var extracaoProcessada = !resultadoCriacao.DocumentoExistente &&
+                await extracaoService.ExtrairAsync(documento.Id, cancellationToken);
             var dadosExtraidos = extracaoProcessada
+                || resultadoCriacao.DocumentoExistente
                 ? await ObterDadosExtraidosAsync(db, documento.Id, cancellationToken)
                 : null;
             var response = new UploadDocumentoResponse(
                 documento.Id,
+                resultadoCriacao.DocumentoExistente,
                 extracaoProcessada,
                 dadosExtraidos,
                 Url.Action(nameof(ExtrairIdentificacao), new { id = documento.Id }) ??
                     $"/api/documentos/{documento.Id}/extrair-identificacao");
-            return CreatedAtAction(nameof(GetById), new { id = documento.Id }, response);
+            return resultadoCriacao.DocumentoExistente
+                ? Ok(response)
+                : CreatedAtAction(nameof(GetById), new { id = documento.Id }, response);
         }
         catch (ArgumentException ex)
         {
