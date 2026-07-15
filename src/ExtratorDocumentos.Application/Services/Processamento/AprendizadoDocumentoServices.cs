@@ -624,12 +624,26 @@ namespace ExtratorDocumentos.Application.Services.Processamento
 
         public static string NormalizarChave(string valor)
         {
-            var codigo = NormalizarCodigo(SepararCamelCase(valor));
-            if (!codigo.Contains('_')) return codigo;
+            var valorSeguro = valor ?? string.Empty;
+            var sufixoNumerico = new string(valorSeguro
+                .Reverse()
+                .TakeWhile(char.IsDigit)
+                .Reverse()
+                .ToArray());
+            var codigo = NormalizarCodigo(SepararCamelCase(valorSeguro));
+            if (!codigo.Contains('_'))
+                return string.IsNullOrWhiteSpace(sufixoNumerico) ||
+                    codigo.EndsWith(sufixoNumerico, StringComparison.Ordinal)
+                    ? codigo
+                    : codigo + sufixoNumerico;
             var partes = codigo.Split('_', StringSplitOptions.RemoveEmptyEntries);
             if (partes.Length == 0) return codigo;
-            return partes[0] + string.Concat(partes.Skip(1)
+            var chave = partes[0] + string.Concat(partes.Skip(1)
                 .Select(x => char.ToUpperInvariant(x[0]) + x[1..]));
+            return string.IsNullOrWhiteSpace(sufixoNumerico) ||
+                chave.EndsWith(sufixoNumerico, StringComparison.Ordinal)
+                ? chave
+                : chave + sufixoNumerico;
         }
 
         private static string SepararCamelCase(string valor)

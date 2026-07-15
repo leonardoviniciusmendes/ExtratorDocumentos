@@ -83,11 +83,22 @@ builder.Services.AddScoped<IAplicadorSchemaDocumentoService,
     AplicadorSchemaDocumentoService>();
 builder.Services.AddScoped<ITipoDocumentoAprendizadoService,
     TipoDocumentoAprendizadoService>();
+builder.Services.AddScoped<ISugestorSchemaDocumentoService,
+    SugestorSchemaDocumentoService>();
+builder.Services.AddScoped<IValidadorSchemaDocumentoService,
+    ValidadorSchemaDocumentoService>();
+builder.Services.AddScoped<IPublicadorSchemaDocumentoService,
+    PublicadorSchemaDocumentoService>();
 builder.Services.AddHttpClient<IOpenRouterPipelineClient, OpenRouterPipelineClient>(client =>
 {
     var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
         ?? "https://openrouter.ai/api/v1/";
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    var timeoutSeconds =
+        builder.Configuration.GetValue<int?>("DocumentExtraction:OpenRouter:TimeoutSeconds") ??
+        builder.Configuration.GetValue<int?>("OpenRouter:TimeoutSeconds") ??
+        300;
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
 builder.Services.AddScoped<AtualizarOpenRouterModelosJob>();
 builder.Services.AddScoped<HangfireJobScheduler>();

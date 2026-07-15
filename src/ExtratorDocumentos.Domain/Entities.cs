@@ -35,6 +35,13 @@ namespace ExtratorDocumentos.Domain
         Empresa = 2
     }
 
+    public enum StatusTipoDocumentoSchema
+    {
+        Rascunho = 0,
+        Ativo = 1,
+        Inativo = 2
+    }
+
     public class Documento
     {
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -194,12 +201,17 @@ namespace ExtratorDocumentos.Domain
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid TipoDocumentoId { get; set; }
+        public Guid? DocumentoReferenciaId { get; set; }
         public string Versao { get; set; } = "1.0";
         public string SchemaJson { get; set; } = "{}";
         public bool Ativo { get; set; } = true;
+        public StatusTipoDocumentoSchema Status { get; set; } = StatusTipoDocumentoSchema.Ativo;
         public bool GeradoAutomaticamente { get; set; } = true;
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+        public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+        public DateTime? PublicadoEm { get; set; }
         public TipoDocumento TipoDocumento { get; set; } = null!;
+        public Documento? DocumentoReferencia { get; set; }
         public ICollection<TipoDocumentoCampo> Campos { get; set; } = new List<TipoDocumentoCampo>();
         public ICollection<DocumentoExtracao> Extracoes { get; set; } = new List<DocumentoExtracao>();
     }
@@ -208,15 +220,24 @@ namespace ExtratorDocumentos.Domain
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid TipoDocumentoSchemaId { get; set; }
+        public Guid? CampoPaiId { get; set; }
         public string Chave { get; set; } = string.Empty;
         public string NomeExibicao { get; set; } = string.Empty;
         public string TipoDado { get; set; } = "texto";
+        public string? ItemTipoDado { get; set; }
         public bool Obrigatorio { get; set; }
+        public bool ObrigatorioSugerido { get; set; }
+        public string OrigemSugestao { get; set; } = "conhecimento_tipo";
+        public bool EncontradoNoArquivo { get; set; }
+        public decimal? Confianca { get; set; }
         public string? AliasesJson { get; set; }
         public string? RegraNormalizacao { get; set; }
         public string? RegraValidacao { get; set; }
+        public string? Descricao { get; set; }
         public int Ordem { get; set; }
         public TipoDocumentoSchema Schema { get; set; } = null!;
+        public TipoDocumentoCampo? CampoPai { get; set; }
+        public ICollection<TipoDocumentoCampo> CamposFilhos { get; set; } = new List<TipoDocumentoCampo>();
     }
 
     public class TipoDocumentoCampoSugerido

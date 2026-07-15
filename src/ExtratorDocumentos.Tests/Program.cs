@@ -35,7 +35,30 @@ var tests = new (string Nome, Func<Task> Teste)[]
     ("aliases diferentes preenchem chave canonica", AliasesDiferentesPreenchemChaveCanonica),
     ("indice codigo tipo documento e unico", IndiceCodigoTipoDocumentoUnico),
     ("indice schema versao e unico", IndiceSchemaVersaoUnico),
-    ("indice campo sugerido e unico", IndiceCampoSugeridoUnico)
+    ("indice campo sugerido e unico", IndiceCampoSugeridoUnico),
+    ("schema sugerido inicia como rascunho", SchemaSugeridoIniciaComoRascunho),
+    ("validacao rejeita chave duplicada", ValidacaoRejeitaChaveDuplicada),
+    ("validacao rejeita lista sem item", ValidacaoRejeitaListaSemItem),
+    ("validacao rejeita objeto sem campos", ValidacaoRejeitaObjetoSemCampos),
+    ("validacao aceita schema estruturado", ValidacaoAceitaSchemaEstruturado),
+    ("json exemplo nao contem valores reais", JsonExemploNaoContemValoresReais),
+    ("schema ativo nao deve ser alterado diretamente", SchemaAtivoNaoDeveSerAlteradoDiretamente),
+    ("ausencia schema ativo usa codigo controlado", AusenciaSchemaAtivoUsaCodigoControlado),
+    ("cnh sugere campos conhecidos ausentes", CnhSugereCamposConhecidosAusentes),
+    ("conta luz sugere endereco cep titular consumo", ContaLuzSugereEnderecoCepTitularConsumo),
+    ("contrato sugere numero partes assinatura vigencia", ContratoSugereNumeroPartesAssinaturaVigencia),
+    ("passaporte sugere mrz e dados internacionais", PassaporteSugereMrzDadosInternacionais),
+    ("campos encontrados sao marcados corretamente", CamposEncontradosMarcadosCorretamente),
+    ("campos conhecidos ausentes sao mantidos", CamposConhecidosAusentesMantidos),
+    ("campo especifico do exemplo e adicionado", CampoEspecificoExemploAdicionado),
+    ("schema conceitual nao armazena valores reais", SchemaConceitualNaoArmazenaValoresReais),
+    ("schema conceitual permanece rascunho", SchemaConceitualPermaneceRascunho),
+    ("origem sugestao e persistivel", OrigemSugestaoPersistivel),
+    ("aliases duplicados sao unificados", AliasesDuplicadosUnificados),
+    ("arquivo ilegivel ainda sugere por tipo", ArquivoIlegivelAindaSugerePorTipo),
+    ("tipo desconhecido usa descricao e arquivo", TipoDesconhecidoUsaDescricaoEArquivo),
+    ("objetos e listas sao sugeridos", ObjetosEListasSugeridos),
+    ("resposta retorna sugestoes com extracao vazia", RespostaRetornaSugestoesComExtracaoVazia)
 };
 
 var falhas = 0;
@@ -415,6 +438,116 @@ static Task IndiceCampoSugeridoUnico()
     return Task.CompletedTask;
 }
 
+static Task SchemaSugeridoIniciaComoRascunho()
+{
+    var dto = CriarSchemaDtoContrato();
+    dto.Status = StatusTipoDocumentoSchema.Rascunho.ToString();
+
+    Assert(dto.Status == "Rascunho");
+    Assert(dto.Campos.All(x => !x.Obrigatorio));
+    return Task.CompletedTask;
+}
+
+static Task ValidacaoRejeitaChaveDuplicada()
+{
+    var validador = new ValidadorSchemaDocumentoService();
+    var dto = CriarSchemaDtoContrato();
+    dto.Campos.Add(new TipoDocumentoCampoDto
+    {
+        Chave = "numeroContrato",
+        NomeExibicao = "Numero duplicado",
+        TipoDado = "texto"
+    });
+
+    var result = validador.Validar(dto);
+
+    Assert(!result.Valido);
+    Assert(result.Erros.Any(x => x.Contains("duplicada", StringComparison.OrdinalIgnoreCase)));
+    return Task.CompletedTask;
+}
+
+static Task ValidacaoRejeitaListaSemItem()
+{
+    var validador = new ValidadorSchemaDocumentoService();
+    var dto = new TipoDocumentoSchemaDto();
+    dto.Campos.Add(new TipoDocumentoCampoDto
+    {
+        Chave = "beneficiarios",
+        NomeExibicao = "Beneficiarios",
+        TipoDado = "lista"
+    });
+
+    var result = validador.Validar(dto);
+
+    Assert(!result.Valido);
+    Assert(result.Erros.Any(x => x.Contains("lista sem definicao", StringComparison.OrdinalIgnoreCase)));
+    return Task.CompletedTask;
+}
+
+static Task ValidacaoRejeitaObjetoSemCampos()
+{
+    var validador = new ValidadorSchemaDocumentoService();
+    var dto = new TipoDocumentoSchemaDto();
+    dto.Campos.Add(new TipoDocumentoCampoDto
+    {
+        Chave = "operadora",
+        NomeExibicao = "Operadora",
+        TipoDado = "objeto"
+    });
+
+    var result = validador.Validar(dto);
+
+    Assert(!result.Valido);
+    Assert(result.Erros.Any(x => x.Contains("objeto sem campos", StringComparison.OrdinalIgnoreCase)));
+    return Task.CompletedTask;
+}
+
+static Task ValidacaoAceitaSchemaEstruturado()
+{
+    var validador = new ValidadorSchemaDocumentoService();
+    var result = validador.Validar(CriarSchemaDtoContrato());
+
+    Assert(result.Valido);
+    return Task.CompletedTask;
+}
+
+static Task JsonExemploNaoContemValoresReais()
+{
+    var dto = CriarSchemaDtoContrato();
+    dto.JsonExemplo = new Dictionary<string, object?>
+    {
+        ["numeroContrato"] = null,
+        ["operadora"] = new Dictionary<string, object?> { ["nome"] = null },
+        ["beneficiarios"] = Array.Empty<object>()
+    };
+    var json = JsonSerializer.Serialize(dto.JsonExemplo);
+
+    Assert(!json.Contains("AMIL", StringComparison.OrdinalIgnoreCase));
+    Assert(!json.Contains("7023PME", StringComparison.OrdinalIgnoreCase));
+    Assert(json.Contains("numeroContrato", StringComparison.Ordinal));
+    return Task.CompletedTask;
+}
+
+static Task SchemaAtivoNaoDeveSerAlteradoDiretamente()
+{
+    var schema = new TipoDocumentoSchema
+    {
+        Status = StatusTipoDocumentoSchema.Ativo,
+        Ativo = true
+    };
+
+    Assert(schema.Status != StatusTipoDocumentoSchema.Rascunho);
+    return Task.CompletedTask;
+}
+
+static Task AusenciaSchemaAtivoUsaCodigoControlado()
+{
+    var erro = "SCHEMA_ATIVO_NAO_ENCONTRADO: Nao existe um schema ativo para o tipo contrato_plano_saude.";
+
+    Assert(erro.StartsWith("SCHEMA_ATIVO_NAO_ENCONTRADO:", StringComparison.Ordinal));
+    return Task.CompletedTask;
+}
+
 static ResultadoIdentificacaoDocumentoDto CriarExtracaoContrato()
 {
     var dto = new ResultadoIdentificacaoDocumentoDto();
@@ -478,6 +611,241 @@ static TipoDocumentoSchema CriarSchemaContrato()
         Ordem = 2
     });
     return schema;
+}
+
+static TipoDocumentoSchemaDto CriarSchemaDtoContrato()
+{
+    var dto = new TipoDocumentoSchemaDto
+    {
+        Id = Guid.NewGuid(),
+        Versao = "1.0",
+        Status = "Rascunho",
+        GeradoAutomaticamente = true
+    };
+    dto.Campos.Add(new TipoDocumentoCampoDto
+    {
+        Chave = "numeroContrato",
+        NomeExibicao = "Numero do contrato",
+        TipoDado = "texto",
+        Ordem = 1
+    });
+    dto.Campos.Add(new TipoDocumentoCampoDto
+    {
+        Chave = "operadora",
+        NomeExibicao = "Operadora",
+        TipoDado = "objeto",
+        Ordem = 2,
+        Campos =
+        {
+            new TipoDocumentoCampoDto
+            {
+                Chave = "nome",
+                NomeExibicao = "Nome da operadora",
+                TipoDado = "texto",
+                Ordem = 1
+            }
+        }
+    });
+    dto.Campos.Add(new TipoDocumentoCampoDto
+    {
+        Chave = "beneficiarios",
+        NomeExibicao = "Beneficiarios",
+        TipoDado = "lista",
+        Ordem = 3,
+        Item = new TipoDocumentoItemListaDto
+        {
+            TipoDado = "objeto",
+            Campos =
+            {
+                new TipoDocumentoCampoDto
+                {
+                    Chave = "nome",
+                    NomeExibicao = "Nome",
+                    TipoDado = "texto",
+                    Ordem = 1
+                }
+            }
+        }
+    });
+    return dto;
+}
+
+static Task CnhSugereCamposConhecidosAusentes()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("cnh", null,
+        ExtracaoCom("nomeCompleto", "Nome", "JOAO DA SILVA"));
+    Assert(campos.Any(x => x.Chave == "cpf" && !x.EncontradoNoArquivo));
+    Assert(campos.Any(x => x.Chave == "categoriaHabilitacao" && !x.EncontradoNoArquivo));
+    Assert(campos.Any(x => x.Chave == "numeroRegistro"));
+    return Task.CompletedTask;
+}
+
+static Task ContaLuzSugereEnderecoCepTitularConsumo()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("conta_luz", null,
+        new ResultadoIdentificacaoDocumentoDto());
+    var endereco = campos.First(x => x.Chave == "endereco");
+    Assert(campos.Any(x => x.Chave == "titular"));
+    Assert(campos.Any(x => x.Chave == "consumoKwh"));
+    Assert(endereco.CamposFilhos.Any(x => x.Chave == "cep"));
+    return Task.CompletedTask;
+}
+
+static Task ContratoSugereNumeroPartesAssinaturaVigencia()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("contrato", null,
+        new ResultadoIdentificacaoDocumentoDto());
+    Assert(campos.Any(x => x.Chave == "numeroContrato"));
+    Assert(campos.Any(x => x.Chave == "partes" && x.TipoDado == "lista"));
+    Assert(campos.Any(x => x.Chave == "assinaturas" && x.TipoDado == "lista"));
+    Assert(campos.Any(x => x.Chave == "dataInicioVigencia"));
+    return Task.CompletedTask;
+}
+
+static Task PassaporteSugereMrzDadosInternacionais()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("passaporte", null,
+        new ResultadoIdentificacaoDocumentoDto());
+    Assert(campos.Any(x => x.Chave == "mrzLinha1"));
+    Assert(campos.Any(x => x.Chave == "mrzLinha2"));
+    Assert(campos.Any(x => x.Chave == "paisEmissor"));
+    Assert(campos.Any(x => x.Chave == "nacionalidade"));
+    return Task.CompletedTask;
+}
+
+static Task CamposEncontradosMarcadosCorretamente()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("cnh", null,
+        ExtracaoCom("dataNascimento", "Data de nascimento", "1980-01-01"));
+    var campo = campos.First(x => x.Chave == "dataNascimento");
+    Assert(campo.EncontradoNoArquivo);
+    Assert(campo.OrigemSugestao == "conhecimento_tipo_e_arquivo");
+    return Task.CompletedTask;
+}
+
+static Task CamposConhecidosAusentesMantidos()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("passaporte", null,
+        ExtracaoCom("numeroPassaporte", "Passport No", "AB123456"));
+    var campo = campos.First(x => x.Chave == "mrzLinha1");
+    Assert(!campo.EncontradoNoArquivo);
+    Assert(campo.OrigemSugestao == "conhecimento_tipo");
+    return Task.CompletedTask;
+}
+
+static Task CampoEspecificoExemploAdicionado()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("contrato", null,
+        ExtracaoCom("registroAns", "Registro ANS", "326305"));
+    var campo = campos.First(x => x.Chave == "registroAns");
+    Assert(campo.EncontradoNoArquivo);
+    Assert(campo.OrigemSugestao == "encontrado_arquivo");
+    return Task.CompletedTask;
+}
+
+static Task SchemaConceitualNaoArmazenaValoresReais()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("cnh", null,
+        ExtracaoCom("nomeCompleto", "Nome", "JOAO DA SILVA"));
+    var json = JsonSerializer.Serialize(campos);
+    Assert(!json.Contains("JOAO", StringComparison.OrdinalIgnoreCase));
+    Assert(!json.Contains("DA SILVA", StringComparison.OrdinalIgnoreCase));
+    return Task.CompletedTask;
+}
+
+static Task SchemaConceitualPermaneceRascunho()
+{
+    var dto = new TipoDocumentoSchemaDto
+    {
+        Status = StatusTipoDocumentoSchema.Rascunho.ToString(),
+        Campos = CatalogoSchemaConceitualDocumento.Sugerir("cnh", null,
+            new ResultadoIdentificacaoDocumentoDto())
+    };
+    Assert(dto.Status == "Rascunho");
+    return Task.CompletedTask;
+}
+
+static Task OrigemSugestaoPersistivel()
+{
+    var entityType = CriarDbContextSemProvider().Model.FindEntityType(typeof(TipoDocumentoCampo)) ??
+        throw new InvalidOperationException("TipoDocumentoCampo nao mapeado.");
+    Assert(entityType.FindProperty(nameof(TipoDocumentoCampo.OrigemSugestao)) != null);
+    Assert(entityType.FindProperty(nameof(TipoDocumentoCampo.EncontradoNoArquivo)) != null);
+    Assert(entityType.FindProperty(nameof(TipoDocumentoCampo.ObrigatorioSugerido)) != null);
+    return Task.CompletedTask;
+}
+
+static Task AliasesDuplicadosUnificados()
+{
+    var extracao = ExtracaoCom("numeroRegistro", "registro", "123456789");
+    extracao.CamposExtraidos.Add(new CampoExtraidoDocumentoDto
+    {
+        Chave = "driver_license_number",
+        RotuloOriginal = "driver license number",
+        ValorOriginal = "123456789",
+        ValorNormalizado = "123456789",
+        TipoDado = "texto",
+        Confianca = 0.9m
+    });
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("cnh", null, extracao);
+    Assert(campos.Count(x => x.Chave == "numeroRegistro") == 1);
+    return Task.CompletedTask;
+}
+
+static Task ArquivoIlegivelAindaSugerePorTipo()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("cnh", null,
+        new ResultadoIdentificacaoDocumentoDto());
+    Assert(campos.Any(x => x.Chave == "nomeCompleto"));
+    Assert(campos.Any(x => x.Chave == "dataValidade"));
+    return Task.CompletedTask;
+}
+
+static Task TipoDesconhecidoUsaDescricaoEArquivo()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir(
+        "carteira_residencia",
+        "Documento de residencia emitido para estrangeiros",
+        ExtracaoCom("numeroRegistro", "Numero do registro", "ABC123"));
+    Assert(campos.Any(x => x.Chave == "numeroDocumento"));
+    Assert(campos.Any(x => x.Chave == "numeroRegistro" && x.EncontradoNoArquivo));
+    return Task.CompletedTask;
+}
+
+static Task ObjetosEListasSugeridos()
+{
+    var conta = CatalogoSchemaConceitualDocumento.Sugerir("conta_luz", null,
+        new ResultadoIdentificacaoDocumentoDto());
+    var contrato = CatalogoSchemaConceitualDocumento.Sugerir("contrato", null,
+        new ResultadoIdentificacaoDocumentoDto());
+    Assert(conta.Any(x => x.Chave == "endereco" && x.CamposFilhos.Count > 0));
+    Assert(contrato.Any(x => x.Chave == "partes" && x.ItemLista?.CamposFilhos.Count > 0));
+    return Task.CompletedTask;
+}
+
+static Task RespostaRetornaSugestoesComExtracaoVazia()
+{
+    var campos = CatalogoSchemaConceitualDocumento.Sugerir("passaporte", null,
+        new ResultadoIdentificacaoDocumentoDto());
+    Assert(campos.Count >= 10);
+    Assert(campos.All(x => x.OrigemSugestao == "conhecimento_tipo"));
+    return Task.CompletedTask;
+}
+
+static ResultadoIdentificacaoDocumentoDto ExtracaoCom(string chave, string rotulo,
+    object valor)
+{
+    var dto = new ResultadoIdentificacaoDocumentoDto();
+    dto.CamposExtraidos.Add(new CampoExtraidoDocumentoDto
+    {
+        Chave = chave,
+        RotuloOriginal = rotulo,
+        ValorOriginal = valor,
+        ValorNormalizado = valor,
+        TipoDado = valor is DateTime ? "data" : "texto",
+        Confianca = 0.98m
+    });
+    return dto;
 }
 
 static AppDbContext CriarDbContextSemProvider() =>

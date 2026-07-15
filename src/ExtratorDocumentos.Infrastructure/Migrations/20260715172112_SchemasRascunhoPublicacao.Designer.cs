@@ -3,6 +3,7 @@ using System;
 using ExtratorDocumentos.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ExtratorDocumentos.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260715172112_SchemasRascunhoPublicacao")]
+    partial class SchemasRascunhoPublicacao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -128,10 +131,9 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("VersaoExtrator")
-                    .IsRequired()
-                    .HasMaxLength(50)
-                    .HasColumnType("varchar(50)")
-                    .HasDefaultValue("conhecimento_tipo");
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("VersaoSchema")
                         .IsRequired()
@@ -487,16 +489,9 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
-                    b.Property<decimal?>("Confianca")
-                        .HasPrecision(5, 4)
-                        .HasColumnType("decimal(5,4)");
-
                     b.Property<string>("Descricao")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
-
-                    b.Property<bool>("EncontradoNoArquivo")
-                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("ItemTipoDado")
                         .HasMaxLength(30)
@@ -510,16 +505,8 @@ namespace ExtratorDocumentos.Infrastructure.Migrations
                     b.Property<bool>("Obrigatorio")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<bool>("ObrigatorioSugerido")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<int>("Ordem")
                         .HasColumnType("int");
-
-                    b.Property<string>("OrigemSugestao")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("RegraNormalizacao")
                         .HasMaxLength(100)

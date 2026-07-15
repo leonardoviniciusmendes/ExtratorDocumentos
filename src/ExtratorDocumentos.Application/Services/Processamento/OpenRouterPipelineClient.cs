@@ -93,10 +93,11 @@ namespace ExtratorDocumentos.Application.Services.Processamento
         public async Task<ResultadoChamadaModelo<ResultadoIdentificacaoDocumentoDto>> ExtrairIdentificacaoUniversalAsync(
             ModeloSelecionado modelo, string tipoDocumentoSolicitado,
             CaracteristicasArquivo caracteristicas, byte[] conteudo,
+            string? schemaJson,
             CancellationToken cancellationToken)
         {
             var chamada = await EnviarAsync(modelo,
-                DocumentoIdentificacaoPrompt.Criar(tipoDocumentoSolicitado),
+                DocumentoIdentificacaoPrompt.Criar(tipoDocumentoSolicitado, schemaJson),
                 caracteristicas, conteudo, cancellationToken);
             if (!chamada.Sucesso || string.IsNullOrWhiteSpace(chamada.Conteudo))
                 return chamada.ToResultado<ResultadoIdentificacaoDocumentoDto>(null);
@@ -176,9 +177,31 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
             var sw = Stopwatch.StartNew();
-            using var response = await _http.SendAsync(request, cancellationToken);
-            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            HttpResponseMessage response;
+            string responseJson;
+            try
+            {
+                response = await _http.SendAsync(request, cancellationToken);
+                responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                sw.Stop();
+                return new ChamadaOpenRouter(modelo.ModeloId, null, null, null, null,
+                    sw.ElapsedMilliseconds, false,
+                    $"OPENROUTER_TIMEOUT: tempo limite de chamada excedido. {ex.Message}",
+                    null);
+            }
+            catch (HttpRequestException ex)
+            {
+                sw.Stop();
+                return new ChamadaOpenRouter(modelo.ModeloId, null, null, null, null,
+                    sw.ElapsedMilliseconds, false,
+                    $"OPENROUTER_HTTP_ERROR: {ex.Message}", null);
+            }
             sw.Stop();
+            using (response)
+            {
             if (!response.IsSuccessStatusCode)
                 return new ChamadaOpenRouter(modelo.ModeloId, null, null, null, null,
                     sw.ElapsedMilliseconds, false,
@@ -198,6 +221,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 !string.IsNullOrWhiteSpace(outputText),
                 null,
                 root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null);
+            }
         }
 
         private static int? ObterInt(JsonElement item, string nome) =>

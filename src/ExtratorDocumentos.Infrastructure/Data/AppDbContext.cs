@@ -162,8 +162,13 @@ namespace ExtratorDocumentos.Infrastructure.Data
                 b.Property(x => x.SchemaJson).IsRequired().HasColumnType("longtext");
                 b.HasIndex(x => new { x.TipoDocumentoId, x.Versao }).IsUnique();
                 b.HasIndex(x => new { x.TipoDocumentoId, x.Ativo });
+                b.HasIndex(x => x.Status);
                 b.HasOne(x => x.TipoDocumento).WithMany(x => x.Schemas)
                     .HasForeignKey(x => x.TipoDocumentoId);
+                b.HasOne(x => x.DocumentoReferencia)
+                    .WithMany()
+                    .HasForeignKey(x => x.DocumentoReferenciaId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<TipoDocumentoCampo>(b =>
@@ -173,12 +178,21 @@ namespace ExtratorDocumentos.Infrastructure.Data
                 b.Property(x => x.Chave).IsRequired().HasMaxLength(150);
                 b.Property(x => x.NomeExibicao).IsRequired().HasMaxLength(300);
                 b.Property(x => x.TipoDado).IsRequired().HasMaxLength(30);
+                b.Property(x => x.ItemTipoDado).HasMaxLength(30);
+                b.Property(x => x.OrigemSugestao).IsRequired().HasMaxLength(50)
+                    .HasDefaultValue("conhecimento_tipo");
+                b.Property(x => x.Confianca).HasPrecision(5, 4);
                 b.Property(x => x.AliasesJson).HasColumnType("longtext");
                 b.Property(x => x.RegraNormalizacao).HasMaxLength(100);
                 b.Property(x => x.RegraValidacao).HasMaxLength(1000);
+                b.Property(x => x.Descricao).HasMaxLength(1000);
                 b.HasIndex(x => new { x.TipoDocumentoSchemaId, x.Chave }).IsUnique();
+                b.HasIndex(x => x.CampoPaiId);
                 b.HasOne(x => x.Schema).WithMany(x => x.Campos)
                     .HasForeignKey(x => x.TipoDocumentoSchemaId);
+                b.HasOne(x => x.CampoPai).WithMany(x => x.CamposFilhos)
+                    .HasForeignKey(x => x.CampoPaiId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<TipoDocumentoCampoSugerido>(b =>

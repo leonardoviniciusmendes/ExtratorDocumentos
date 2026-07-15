@@ -17,6 +17,8 @@ public sealed class DocumentosController : ControllerBase
     {
         if (request.Arquivo == null || request.Arquivo.Length == 0)
             return BadRequest(new { erro = "Arquivo e obrigatorio." });
+        if (string.IsNullOrWhiteSpace(request.TipoDocumento))
+            return BadRequest(new { erro = "TipoDocumento e obrigatorio." });
 
         await using var stream = request.Arquivo.OpenReadStream();
         try
@@ -35,11 +37,22 @@ public sealed class DocumentosController : ControllerBase
         {
             return BadRequest(new { erro = ex.Message });
         }
+        catch (InvalidOperationException ex) when (
+            ex.Message.StartsWith("SCHEMA_ATIVO_NAO_ENCONTRADO:",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var mensagem = ex.Message.Split(':', 2)[1].Trim();
+            return UnprocessableEntity(new
+            {
+                codigo = "SCHEMA_ATIVO_NAO_ENCONTRADO",
+                mensagem
+            });
+        }
     }
 }
 
 public sealed class UploadDocumentoRequest
 {
-    public TipoDocumentoProcessamento TipoDocumento { get; set; }
+    public string TipoDocumento { get; set; } = string.Empty;
     public IFormFile Arquivo { get; set; } = null!;
 }

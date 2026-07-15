@@ -23,6 +23,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             string tipoDocumentoSolicitado,
             CaracteristicasArquivo caracteristicas,
             byte[] conteudo,
+            string? schemaJson,
             CancellationToken cancellationToken);
     }
 }

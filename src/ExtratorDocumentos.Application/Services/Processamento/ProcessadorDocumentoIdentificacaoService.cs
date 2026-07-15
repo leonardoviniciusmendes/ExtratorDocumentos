@@ -50,10 +50,10 @@ namespace ExtratorDocumentos.Application.Services.Processamento
         }
 
         public async Task<ResultadoDocumentoPadronizadoDto> ProcessarAsync(
-            TipoDocumentoProcessamento tipoDocumento, ArquivoDocumento arquivo,
+            string tipoDocumento, ArquivoDocumento arquivo,
             CancellationToken cancellationToken)
         {
-            var tipoSolicitado = NormalizarTipo(tipoDocumento);
+            var tipoSolicitado = NormalizadorEstrutural.NormalizarCodigo(tipoDocumento);
             var bytes = await LerArquivoAsync(arquivo.Conteudo, cancellationToken);
             var hash = CalcularHash(bytes);
             var versaoSchema = _configuration["DocumentProcessing:VersaoSchemaIdentificacao"]
@@ -64,6 +64,15 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             var documento = await ObterOuCriarDocumentoAsync(
                 arquivo, bytes, hash, versaoSchema, versaoExtrator,
                 cancellationToken);
+            var tipoSchema = await _db.TiposDocumento
+                .Include(x => x.Schemas.Where(s => s.Status == StatusTipoDocumentoSchema.Ativo))
+                .ThenInclude(x => x.Campos)
+                .FirstOrDefaultAsync(x => x.Codigo == tipoSolicitado && x.Ativo,
+                    cancellationToken);
+            var schemaAtivo = tipoSchema?.Schemas.FirstOrDefault();
+            if (tipoSchema == null || schemaAtivo == null)
+                throw new InvalidOperationException(
+                    $"SCHEMA_ATIVO_NAO_ENCONTRADO: Nao existe um schema ativo para o tipo {tipoSolicitado}.");
 
             var extracaoSchemaAtivo = await BuscarExtracaoComSchemaAtivoAsync(
                 documento.Id, tipoSolicitado, versaoExtrator, cancellationToken);
@@ -81,8 +90,11 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             var extracao = extracaoExistente ?? new DocumentoExtracao
             {
                 DocumentoId = documento.Id,
+                TipoDocumentoId = tipoSchema.Id,
+                TipoDocumentoSchemaId = schemaAtivo.Id,
+                TipoDocumentoSchema = schemaAtivo,
                 TipoDocumentoSolicitado = tipoSolicitado,
-                VersaoSchema = versaoSchema,
+                VersaoSchema = schemaAtivo.Versao,
                 VersaoExtrator = versaoExtrator,
                 Status = StatusExtracao.Pendente
             };
@@ -196,7 +208,8 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             foreach (var modelo in modelos.Take(QuantidadeMaximaTentativas()))
             {
                 ultimo = await _openRouter.ExtrairIdentificacaoUniversalAsync(
-                    modelo, tipoSolicitado, caracteristicas, bytes, cancellationToken);
+                    modelo, tipoSolicitado, caracteristicas, bytes,
+                    extracao.TipoDocumentoSchema?.SchemaJson, cancellationToken);
                 RegistrarUso(extracao, "extracao_identificacao", ultimo);
                 if (ultimo.Sucesso && ultimo.Dados != null)
                     return ultimo;
