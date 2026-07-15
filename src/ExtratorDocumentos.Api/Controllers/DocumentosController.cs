@@ -1,4 +1,5 @@
 using ExtratorDocumentos.Application.Dtos.Documentos;
+using ExtratorDocumentos.Application.Services.Extracao;
 using ExtratorDocumentos.Application.Services.Processamento;
 using ExtratorDocumentos.Domain;
 using Microsoft.AspNetCore.Mvc;
@@ -17,14 +18,17 @@ public sealed class DocumentosController : ControllerBase
     {
         if (request.Arquivo == null || request.Arquivo.Length == 0)
             return BadRequest(new { erro = "Arquivo e obrigatorio." });
-        if (string.IsNullOrWhiteSpace(request.TipoDocumento))
+        if (request.TipoDocumento == null)
             return BadRequest(new { erro = "TipoDocumento e obrigatorio." });
+
+
+
 
         await using var stream = request.Arquivo.OpenReadStream();
         try
         {
             var resultado = await processador.ProcessarAsync(
-                request.TipoDocumento,
+                request.TipoDocumento.Nome,
                 new ArquivoDocumento(request.Arquivo.FileName,
                     request.Arquivo.ContentType, stream),
                 cancellationToken);
@@ -49,10 +53,20 @@ public sealed class DocumentosController : ControllerBase
             });
         }
     }
+
+
+    [HttpGet("tipos")]
+    public async Task<IActionResult> GetTipos(
+       [FromServices] TipoDocumentoAprendizadoService service,
+       CancellationToken cancellationToken)
+    {
+        var tipos = await service.ListarTipoSchemaAsync(cancellationToken);
+        return Ok(tipos);
+    }
 }
 
 public sealed class UploadDocumentoRequest
 {
-    public string TipoDocumento { get; set; } = string.Empty;
+    public TipoDocumento TipoDocumento { get; set; } = null!;
     public IFormFile Arquivo { get; set; } = null!;
 }

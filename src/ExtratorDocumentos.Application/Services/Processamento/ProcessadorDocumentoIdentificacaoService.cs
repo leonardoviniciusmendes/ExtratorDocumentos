@@ -73,21 +73,16 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             if (tipoSchema == null || schemaAtivo == null)
                 throw new InvalidOperationException(
                     $"SCHEMA_ATIVO_NAO_ENCONTRADO: Nao existe um schema ativo para o tipo {tipoSolicitado}.");
+            schemaAtivo.TipoDocumento = tipoSchema;
 
             var extracaoSchemaAtivo = await BuscarExtracaoComSchemaAtivoAsync(
                 documento.Id, tipoSolicitado, versaoExtrator, cancellationToken);
             if (extracaoSchemaAtivo is { Status: StatusExtracao.Concluido or StatusExtracao.ConcluidoComAlertas or StatusExtracao.RequerRevisao, ResultadoJson: not null })
                 return DesserializarResultado(extracaoSchemaAtivo.ResultadoJson, true);
+            if (extracaoSchemaAtivo is { Status: StatusExtracao.Processando or StatusExtracao.Pendente })
+                return CriarRespostaProcessando(documento, extracaoSchemaAtivo, hash);
 
-            var extracaoExistente = await BuscarExtracaoAsync(
-                documento.Id, tipoSolicitado, versaoSchema, versaoExtrator,
-                cancellationToken);
-            if (extracaoExistente is { Status: StatusExtracao.Concluido or StatusExtracao.ConcluidoComAlertas or StatusExtracao.RequerRevisao, ResultadoJson: not null })
-                return DesserializarResultado(extracaoExistente.ResultadoJson, true);
-            if (extracaoExistente is { Status: StatusExtracao.Processando or StatusExtracao.Pendente })
-                return CriarRespostaProcessando(documento, extracaoExistente, hash);
-
-            var extracao = extracaoExistente ?? new DocumentoExtracao
+            var extracao = extracaoSchemaAtivo ?? new DocumentoExtracao
             {
                 DocumentoId = documento.Id,
                 TipoDocumentoId = tipoSchema.Id,
@@ -98,7 +93,7 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 VersaoExtrator = versaoExtrator,
                 Status = StatusExtracao.Pendente
             };
-            if (extracaoExistente == null)
+            if (extracaoSchemaAtivo == null)
                 _db.DocumentoExtracoes.Add(extracao);
 
             try
@@ -108,9 +103,8 @@ namespace ExtratorDocumentos.Application.Services.Processamento
             catch (DbUpdateException ex) when (EhViolacaoUnicidade(ex))
             {
                 _db.ChangeTracker.Clear();
-                var concorrente = await BuscarExtracaoAsync(
-                    documento.Id, tipoSolicitado, versaoSchema, versaoExtrator,
-                    cancellationToken);
+                var concorrente = await BuscarExtracaoComSchemaAtivoAsync(
+                    documento.Id, tipoSolicitado, versaoExtrator, cancellationToken);
                 if (concorrente?.ResultadoJson != null)
                     return DesserializarResultado(concorrente.ResultadoJson, true);
                 if (concorrente != null)
@@ -146,27 +140,22 @@ namespace ExtratorDocumentos.Application.Services.Processamento
 
                 CompletarResultado(resultado, documento, extracao, tipoSolicitado,
                     hash, versaoSchema, versaoExtrator, chamada.ModeloId);
-                var assinatura = _assinaturaService.Gerar(resultado, caracteristicas);
-                var identificacaoTipo = await _identificadorTipo.IdentificarAsync(
-                    assinatura, cancellationToken);
-                var (tipoAprendido, schema, tipoReutilizado, similaridade, requerRevisao) =
-                    await _aprendizadoService.ObterOuCriarAsync(
-                        identificacaoTipo, assinatura, resultado, cancellationToken);
                 var padronizado = await _aplicadorSchema.AplicarAsync(
-                    schema, resultado, cancellationToken);
+                    extracao.TipoDocumentoSchema!, resultado, cancellationToken);
+                var tipoDocumento = extracao.TipoDocumentoSchema!.TipoDocumento;
                 CompletarResultadoPadronizado(padronizado, documento, extracao,
-                    tipoAprendido, schema, tipoReutilizado, similaridade,
-                    requerRevisao, chamada.ModeloId, versaoExtrator);
+                    tipoDocumento, extracao.TipoDocumentoSchema, true, 1m,
+                    false, chamada.ModeloId, versaoExtrator);
                 await _aprendizadoService.RegistrarCamposAdicionaisAsync(
-                    tipoAprendido, padronizado.CamposAdicionais, cancellationToken);
+                    tipoDocumento, padronizado.CamposAdicionais, cancellationToken);
                 var status = DefinirStatus(resultado);
                 if (padronizado.Validacao.RequerRevisaoHumana)
                     status = StatusExtracao.RequerRevisao;
                 extracao.Status = status;
-                extracao.TipoDocumentoId = tipoAprendido.Id;
-                extracao.TipoDocumentoSchemaId = schema.Id;
-                extracao.SimilaridadeTipo = similaridade;
-                extracao.TipoReutilizado = tipoReutilizado;
+                extracao.TipoDocumentoId = tipoDocumento.Id;
+                extracao.TipoDocumentoSchemaId = extracao.TipoDocumentoSchema.Id;
+                extracao.SimilaridadeTipo = 1m;
+                extracao.TipoReutilizado = true;
                 extracao.TipoDocumentoIdentificado = resultado.Classificacao.TipoIdentificado;
                 extracao.Confianca = resultado.Validacao.ConfiancaGeral;
                 extracao.ModeloExtracao = chamada.ModeloId;
@@ -306,21 +295,14 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 entries);
         }
 
-        private Task<DocumentoExtracao?> BuscarExtracaoAsync(Guid documentoId,
-            string tipoSolicitado, string versaoSchema, string versaoExtrator,
-            CancellationToken cancellationToken) =>
-            _db.DocumentoExtracoes.FirstOrDefaultAsync(x =>
-                x.DocumentoId == documentoId &&
-                x.TipoDocumentoSchemaId == null &&
-                x.TipoDocumentoSolicitado == tipoSolicitado &&
-                x.VersaoSchema == versaoSchema &&
-                x.VersaoExtrator == versaoExtrator, cancellationToken);
-
         private Task<DocumentoExtracao?> BuscarExtracaoComSchemaAtivoAsync(
             Guid documentoId, string tipoSolicitado, string versaoExtrator,
             CancellationToken cancellationToken) =>
             _db.DocumentoExtracoes
                 .Include(x => x.TipoDocumentoSchema)
+                    .ThenInclude(x => x!.TipoDocumento)
+                .Include(x => x.TipoDocumentoSchema)
+                    .ThenInclude(x => x!.Campos)
                 .FirstOrDefaultAsync(x =>
                     x.DocumentoId == documentoId &&
                     x.TipoDocumentoSolicitado == tipoSolicitado &&

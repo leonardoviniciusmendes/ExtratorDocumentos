@@ -33,6 +33,7 @@ var tests = new (string Nome, Func<Task> Teste)[]
     ("lista ausente retorna array vazio", ListaAusenteRetornaArrayVazio),
     ("campo inesperado vai para adicionais", CampoInesperadoVaiParaAdicionais),
     ("aliases diferentes preenchem chave canonica", AliasesDiferentesPreenchemChaveCanonica),
+    ("aplicador respeita json exemplo estruturado", AplicadorRespeitaJsonExemploEstruturado),
     ("indice codigo tipo documento e unico", IndiceCodigoTipoDocumentoUnico),
     ("indice schema versao e unico", IndiceSchemaVersaoUnico),
     ("indice campo sugerido e unico", IndiceCampoSugeridoUnico),
@@ -396,6 +397,42 @@ static async Task AliasesDiferentesPreenchemChaveCanonica()
     Assert((string?)result.Dados["numeroContrato"] == "XPTO");
 }
 
+static async Task AplicadorRespeitaJsonExemploEstruturado()
+{
+    var service = new AplicadorSchemaDocumentoService();
+    var schema = CriarSchemaContratoEstruturado();
+    var extracao = CriarExtracaoContrato();
+    extracao.CamposExtraidos.Add(new CampoExtraidoDocumentoDto
+    {
+        Chave = "nome",
+        RotuloOriginal = "Nome da operadora",
+        ValorNormalizado = "AMIL",
+        TipoDado = "texto"
+    });
+    extracao.CamposExtraidos.Add(new CampoExtraidoDocumentoDto
+    {
+        Chave = "codigoInternoProduto",
+        RotuloOriginal = "Codigo interno do produto",
+        ValorNormalizado = "ABC-123",
+        TipoDado = "texto"
+    });
+
+    var result = await service.AplicarAsync(schema, extracao, CancellationToken.None);
+
+    Assert(result.Dados.Keys.SequenceEqual([
+        "numeroContrato",
+        "operadora",
+        "beneficiarios"
+    ]));
+    Assert(!result.Dados.ContainsKey("nome"));
+    Assert(!result.Dados.ContainsKey("codigoInternoProduto"));
+    Assert(result.Dados["operadora"] is IReadOnlyDictionary<string, object?> operadora &&
+        operadora.Keys.SequenceEqual(["nome"]) &&
+        (string?)operadora["nome"] == "AMIL");
+    Assert(result.Dados["beneficiarios"] is object[] lista && lista.Length == 0);
+    Assert(result.CamposAdicionais.ContainsKey("codigoInternoProduto"));
+}
+
 static Task IndiceCodigoTipoDocumentoUnico()
 {
     using var db = CriarDbContextSemProvider();
@@ -610,6 +647,73 @@ static TipoDocumentoSchema CriarSchemaContrato()
         TipoDado = "lista",
         Ordem = 2
     });
+    return schema;
+}
+
+static TipoDocumentoSchema CriarSchemaContratoEstruturado()
+{
+    var schemaDto = CriarSchemaDtoContrato();
+    schemaDto.JsonExemplo = new Dictionary<string, object?>
+    {
+        ["numeroContrato"] = null,
+        ["operadora"] = new Dictionary<string, object?> { ["nome"] = null },
+        ["beneficiarios"] = Array.Empty<object>()
+    };
+    var schema = new TipoDocumentoSchema
+    {
+        Id = schemaDto.Id,
+        Versao = schemaDto.Versao,
+        Ativo = true,
+        SchemaJson = JsonSerializer.Serialize(schemaDto)
+    };
+    var numeroContrato = new TipoDocumentoCampo
+    {
+        TipoDocumentoSchemaId = schema.Id,
+        Chave = "numeroContrato",
+        NomeExibicao = "Numero do contrato",
+        TipoDado = "texto",
+        Ordem = 1
+    };
+    var operadora = new TipoDocumentoCampo
+    {
+        TipoDocumentoSchemaId = schema.Id,
+        Chave = "operadora",
+        NomeExibicao = "Operadora",
+        TipoDado = "objeto",
+        Ordem = 2
+    };
+    var nomeOperadora = new TipoDocumentoCampo
+    {
+        TipoDocumentoSchemaId = schema.Id,
+        CampoPaiId = operadora.Id,
+        Chave = "nome",
+        NomeExibicao = "Nome da operadora",
+        TipoDado = "texto",
+        Ordem = 1
+    };
+    var beneficiarios = new TipoDocumentoCampo
+    {
+        TipoDocumentoSchemaId = schema.Id,
+        Chave = "beneficiarios",
+        NomeExibicao = "Beneficiarios",
+        TipoDado = "lista",
+        ItemTipoDado = "objeto",
+        Ordem = 3
+    };
+    var nomeBeneficiario = new TipoDocumentoCampo
+    {
+        TipoDocumentoSchemaId = schema.Id,
+        CampoPaiId = beneficiarios.Id,
+        Chave = "nome",
+        NomeExibicao = "Nome",
+        TipoDado = "texto",
+        Ordem = 1
+    };
+    schema.Campos.Add(numeroContrato);
+    schema.Campos.Add(operadora);
+    schema.Campos.Add(nomeOperadora);
+    schema.Campos.Add(beneficiarios);
+    schema.Campos.Add(nomeBeneficiario);
     return schema;
 }
 

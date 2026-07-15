@@ -277,6 +277,10 @@ namespace ExtratorDocumentos.Application.Services.Processamento
         {
             cancellationToken.ThrowIfCancellationRequested();
             var campos = schema.Campos.OrderBy(x => x.Ordem).ToList();
+            var camposRaiz = campos
+                .Where(x => x.CampoPaiId == null)
+                .OrderBy(x => x.Ordem)
+                .ToList();
             var encontrados = extracao.CamposExtraidos
                 .GroupBy(x => NormalizadorEstrutural.NormalizarChave(x.Chave))
                 .ToDictionary(x => x.Key, x => x.First(), StringComparer.Ordinal);
@@ -286,12 +290,8 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 .GroupBy(x => x.Alias)
                 .ToDictionary(x => x.Key, x => x.First().Campo, StringComparer.Ordinal);
 
-            var dados = new Dictionary<string, object?>(StringComparer.Ordinal);
-            foreach (var campo in campos)
-            {
-                var valor = EncontrarValor(campo, encontrados, aliases);
-                dados[campo.Chave] = valor ?? ValorAusente(campo.TipoDado);
-            }
+            var dados = CriarDados(camposRaiz, campos, encontrados, aliases);
+            dados = AplicarJsonExemplo(schema, dados);
 
             var camposSchema = campos.Select(x => x.Chave)
                 .ToHashSet(StringComparer.Ordinal);
@@ -303,8 +303,9 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                     adicionais[chave] = campo.ValorNormalizado ?? campo.ValorOriginal;
             }
 
-            var obrigatoriosOk = campos.Where(x => x.Obrigatorio)
-                .All(x => dados.TryGetValue(x.Chave, out var valor) && valor != null);
+            var obrigatoriosOk = campos
+                .Where(x => x.Obrigatorio)
+                .All(x => ObrigatorioEncontrado(x, campos, encontrados, aliases));
             var result = new ResultadoDocumentoPadronizadoDto
             {
                 Dados = dados,
@@ -317,6 +318,156 @@ namespace ExtratorDocumentos.Application.Services.Processamento
                 }
             };
             return Task.FromResult(result);
+        }
+
+        private static Dictionary<string, object?> CriarDados(
+            IReadOnlyList<TipoDocumentoCampo> campos,
+            IReadOnlyList<TipoDocumentoCampo> todosCampos,
+            IReadOnlyDictionary<string, CampoExtraidoDocumentoDto> encontrados,
+            IReadOnlyDictionary<string, string> aliases)
+        {
+            var dados = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var campo in campos)
+                dados[campo.Chave] = CriarValor(campo, todosCampos, encontrados, aliases);
+            return dados;
+        }
+
+        private static object? CriarValor(
+            TipoDocumentoCampo campo,
+            IReadOnlyList<TipoDocumentoCampo> todosCampos,
+            IReadOnlyDictionary<string, CampoExtraidoDocumentoDto> encontrados,
+            IReadOnlyDictionary<string, string> aliases)
+        {
+            var tipo = NormalizadorEstrutural.TipoDado(campo.TipoDado);
+            if (tipo == "objeto")
+            {
+                var filhos = ObterFilhos(campo, todosCampos);
+                return CriarDados(filhos, todosCampos, encontrados, aliases);
+            }
+
+            if (tipo == "lista")
+            {
+                var valor = EncontrarValor(campo, encontrados, aliases);
+                return valor is Array or IEnumerable<object>
+                    ? valor
+                    : Array.Empty<object>();
+            }
+
+            return EncontrarValor(campo, encontrados, aliases);
+        }
+
+        private static List<TipoDocumentoCampo> ObterFilhos(
+            TipoDocumentoCampo campo,
+            IReadOnlyList<TipoDocumentoCampo> todosCampos) =>
+            todosCampos
+                .Where(x => x.CampoPaiId == campo.Id)
+                .OrderBy(x => x.Ordem)
+                .ToList();
+
+        private static Dictionary<string, object?> AplicarJsonExemplo(
+            TipoDocumentoSchema schema,
+            IReadOnlyDictionary<string, object?> dados)
+        {
+            var exemplo = LerJsonExemplo(schema.SchemaJson);
+            if (exemplo.Count == 0)
+                return new Dictionary<string, object?>(dados, StringComparer.Ordinal);
+
+            return ProjetarObjeto(exemplo, dados);
+        }
+
+        private static bool ObrigatorioEncontrado(
+            TipoDocumentoCampo campo,
+            IReadOnlyList<TipoDocumentoCampo> todosCampos,
+            IReadOnlyDictionary<string, CampoExtraidoDocumentoDto> encontrados,
+            IReadOnlyDictionary<string, string> aliases)
+        {
+            var tipo = NormalizadorEstrutural.TipoDado(campo.TipoDado);
+            if (tipo == "objeto")
+                return ObterFilhos(campo, todosCampos)
+                    .Where(x => x.Obrigatorio)
+                    .All(x => ObrigatorioEncontrado(x, todosCampos, encontrados, aliases));
+
+            var valor = EncontrarValor(campo, encontrados, aliases);
+            if (tipo == "lista")
+                return valor is Array array
+                    ? array.Length > 0
+                    : valor is IEnumerable<object> lista && lista.Any();
+
+            return valor != null;
+        }
+
+        private static Dictionary<string, object?> LerJsonExemplo(string schemaJson)
+        {
+            if (string.IsNullOrWhiteSpace(schemaJson))
+                return new Dictionary<string, object?>(StringComparer.Ordinal);
+
+            try
+            {
+                var dto = JsonSerializer.Deserialize<TipoDocumentoSchemaDto>(
+                    schemaJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return dto?.JsonExemplo ?? new Dictionary<string, object?>(StringComparer.Ordinal);
+            }
+            catch (JsonException)
+            {
+                return new Dictionary<string, object?>(StringComparer.Ordinal);
+            }
+        }
+
+        private static Dictionary<string, object?> ProjetarObjeto(
+            IReadOnlyDictionary<string, object?> exemplo,
+            IReadOnlyDictionary<string, object?> dados)
+        {
+            var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var (chave, valorExemplo) in exemplo)
+            {
+                dados.TryGetValue(chave, out var valor);
+                result[chave] = ProjetarValor(valorExemplo, valor);
+            }
+
+            return result;
+        }
+
+        private static object? ProjetarValor(object? exemplo, object? valor)
+        {
+            if (exemplo is JsonElement json)
+                return ProjetarJsonElement(json, valor);
+
+            if (exemplo is IReadOnlyDictionary<string, object?> objeto)
+                return valor is IReadOnlyDictionary<string, object?> valorObjeto
+                    ? ProjetarObjeto(objeto, valorObjeto)
+                    : ProjetarObjeto(objeto, new Dictionary<string, object?>(StringComparer.Ordinal));
+
+            if (exemplo is Array or IEnumerable<object>)
+                return valor is Array or IEnumerable<object>
+                    ? valor
+                    : Array.Empty<object>();
+
+            return valor;
+        }
+
+        private static object? ProjetarJsonElement(JsonElement exemplo, object? valor)
+        {
+            return exemplo.ValueKind switch
+            {
+                JsonValueKind.Object => valor is IReadOnlyDictionary<string, object?> valorObjeto
+                    ? ProjetarObjeto(JsonObjectParaDicionario(exemplo), valorObjeto)
+                    : ProjetarObjeto(JsonObjectParaDicionario(exemplo),
+                        new Dictionary<string, object?>(StringComparer.Ordinal)),
+                JsonValueKind.Array => valor is Array or IEnumerable<object>
+                    ? valor
+                    : Array.Empty<object>(),
+                _ => valor
+            };
+        }
+
+        private static Dictionary<string, object?> JsonObjectParaDicionario(
+            JsonElement json)
+        {
+            var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var property in json.EnumerateObject())
+                result[property.Name] = property.Value;
+            return result;
         }
 
         private static object? EncontrarValor(TipoDocumentoCampo campo,
@@ -337,11 +488,6 @@ namespace ExtratorDocumentos.Application.Services.Processamento
 
             return null;
         }
-
-        private static object? ValorAusente(string tipoDado) =>
-            NormalizadorEstrutural.TipoDado(tipoDado) == "lista"
-                ? Array.Empty<object>()
-                : null;
 
         private static IEnumerable<string> LerAliases(TipoDocumentoCampo campo)
         {
@@ -483,7 +629,15 @@ namespace ExtratorDocumentos.Application.Services.Processamento
 
             await _db.SaveChangesAsync(cancellationToken);
         }
+        public async Task<List<TipoDocumentoSchema>> ListarTipoSchemaAsync(
+         CancellationToken cancellationToken)
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            var schemas = await _db.TipoDocumentoSchemas
+                .ToListAsync(cancellationToken);
 
+            return schemas;
+        }
         public async Task<TipoDocumentoSchema> AtivarSchemaAsync(
             Guid tipoDocumentoId,
             Guid schemaId,
