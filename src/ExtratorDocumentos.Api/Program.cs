@@ -1,5 +1,6 @@
 using System.Transactions;
 using ExtratorDocumentos.Api.Services;
+using ExtratorDocumentos.Application.Services;
 using ExtratorDocumentos.Application.Jobs;
 using ExtratorDocumentos.Application.Services.Extracao;
 using ExtratorDocumentos.Application.Services.Processamento;
@@ -38,19 +39,7 @@ builder.Services.AddHangfire(config => config
 builder.Services.AddHangfireServer();
 
 builder.Services.AddScoped<LocalStorageService>();
-builder.Services.AddHttpClient<OpenAiDocumentoExtracaoProvider>(client =>
-{
-    var baseUrl = builder.Configuration["DocumentExtraction:OpenAI:BaseUrl"] ?? "https://api.openai.com/v1/";
-    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
-});
-builder.Services.AddScoped<IDocumentoExtracaoProvider>(
-    sp => sp.GetRequiredService<OpenAiDocumentoExtracaoProvider>());
-builder.Services.AddHttpClient<OpenRouterDocumentoExtracaoProvider>(client =>
-{
-    var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
-        ?? "https://openrouter.ai/api/v1/";
-    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
-});
+builder.Services.AddScoped<DocumentoService>();
 builder.Services.AddHttpClient<OpenRouterModelosService>(client =>
 {
     var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
@@ -63,8 +52,6 @@ builder.Services.AddHttpClient<OpenRouterContaService>(client =>
         ?? "https://openrouter.ai/api/v1/";
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
 });
-builder.Services.AddScoped<IDocumentoExtracaoProvider>(
-    sp => sp.GetRequiredService<OpenRouterDocumentoExtracaoProvider>());
 builder.Services.AddScoped<IArquivoAnaliseService, ArquivoAnaliseService>();
 builder.Services.AddScoped<OpenRouterModelSelector>();
 builder.Services.AddScoped<IOpenRouterModelSelector>(
@@ -78,6 +65,11 @@ builder.Services.AddHttpClient<IOpenRouterPipelineClient, OpenRouterPipelineClie
     var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
         ?? "https://openrouter.ai/api/v1/";
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    var timeoutSeconds =
+        builder.Configuration.GetValue<int?>("DocumentExtraction:OpenRouter:TimeoutSeconds") ??
+        builder.Configuration.GetValue<int?>("OpenRouter:TimeoutSeconds") ??
+        300;
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 });
 builder.Services.AddScoped<AtualizarOpenRouterModelosJob>();
 builder.Services.AddScoped<HangfireJobScheduler>();

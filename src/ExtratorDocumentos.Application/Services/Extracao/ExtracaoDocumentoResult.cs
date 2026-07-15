@@ -1,14 +1,5 @@
-using ExtratorDocumentos.Domain;
-
 namespace ExtratorDocumentos.Application.Services.Extracao
 {
-    public interface IDocumentoExtracaoProvider
-    {
-        string Nome { get; }
-        Task<ExtracaoDocumentoResult?> ExtrairAsync(TipoDocumento tipo, string nomeArquivo,
-            string tipoConteudo, Stream conteudo, CancellationToken cancellationToken);
-    }
-
     public sealed class ExtracaoDocumentoResult
     {
         public string? NomeCompleto { get; set; }
