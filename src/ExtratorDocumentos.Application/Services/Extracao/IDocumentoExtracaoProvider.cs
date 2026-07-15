@@ -51,5 +51,12 @@ namespace ExtratorDocumentos.Application.Services.Extracao
         public decimal Confianca { get; set; }
         public string? TextoExtraido { get; set; }
         public string DadosBrutosJson { get; set; } = "{}";
+        public string? ProvedorUso { get; set; }
+        public string? ModeloUso { get; set; }
+        public string? RequisicaoIdUso { get; set; }
+        public int? TokensEntrada { get; set; }
+        public int? TokensSaida { get; set; }
+        public int? TokensTotais { get; set; }
+        public decimal? CustoUsd { get; set; }
     }
 }

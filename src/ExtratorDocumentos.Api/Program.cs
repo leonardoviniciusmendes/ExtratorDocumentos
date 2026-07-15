@@ -54,6 +54,18 @@ builder.Services.AddHttpClient<OpenRouterDocumentoExtracaoProvider>(client =>
         ?? "https://openrouter.ai/api/v1/";
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
 });
+builder.Services.AddHttpClient<OpenRouterModelosService>(client =>
+{
+    var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
+        ?? "https://openrouter.ai/api/v1/";
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+});
+builder.Services.AddHttpClient<OpenRouterContaService>(client =>
+{
+    var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
+        ?? "https://openrouter.ai/api/v1/";
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+});
 builder.Services.AddScoped<IDocumentoExtracaoProvider>(
     sp => sp.GetRequiredService<OpenRouterDocumentoExtracaoProvider>());
 builder.Services.AddScoped<DocumentoExtracaoService>();

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ExtratorDocumentos.Application.Dtos.Documentos;
 using ExtratorDocumentos.Application.Services;
 using ExtratorDocumentos.Application.Services.Extracao;
@@ -191,8 +192,58 @@ public class DocumentosController : ControllerBase
                 identificacao.DocumentoId, identificacao.DocumentoVersaoId)
             : referencia == null ? null : new VinculoExtracaoResponse(referencia.Cpf,
                 referencia.Cnpj, referencia.DocumentoId, referencia.DocumentoVersaoId);
-        return new DadosExtraidosResponse(identificacao, enderecos, vinculo);
+        var uso = await db.IdentificacoesExtraidas.AsNoTracking()
+            .Where(x => x.DocumentoId == documentoId)
+            .Select(x => x.DadosBrutosJson)
+            .FirstOrDefaultAsync(cancellationToken);
+        return new DadosExtraidosResponse(
+            identificacao, enderecos, vinculo, ObterUsoOpenRouter(uso));
     }
+
+    private static OpenRouterUsoResponse? ObterUsoOpenRouter(string? dadosBrutosJson)
+    {
+        if (string.IsNullOrWhiteSpace(dadosBrutosJson))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(dadosBrutosJson);
+            if (!doc.RootElement.TryGetProperty("_uso", out var uso))
+                return null;
+
+            return new OpenRouterUsoResponse(
+                ObterString(uso, "provedor"),
+                ObterString(uso, "modelo"),
+                ObterString(uso, "requisicaoId"),
+                ObterInt(uso, "tokensEntrada"),
+                ObterInt(uso, "tokensSaida"),
+                ObterInt(uso, "tokensTotais"),
+                ObterDecimal(uso, "custoUsd"));
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ObterString(JsonElement item, string nome) =>
+        item.TryGetProperty(nome, out var valor) && valor.ValueKind == JsonValueKind.String
+            ? valor.GetString()
+            : null;
+
+    private static int? ObterInt(JsonElement item, string nome) =>
+        item.TryGetProperty(nome, out var valor) &&
+        valor.ValueKind == JsonValueKind.Number &&
+        valor.TryGetInt32(out var numero)
+            ? numero
+            : null;
+
+    private static decimal? ObterDecimal(JsonElement item, string nome) =>
+        item.TryGetProperty(nome, out var valor) &&
+        valor.ValueKind == JsonValueKind.Number &&
+        valor.TryGetDecimal(out var numero)
+            ? numero
+            : null;
 }
 
 public sealed class UploadDocumentoRequest

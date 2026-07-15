@@ -45,7 +45,8 @@ namespace ExtratorDocumentos.Application.Dtos.Documentos
     public sealed record DadosExtraidosResponse(
         IdentificacaoExtraidaResponse? Identificacao,
         IReadOnlyList<EnderecoExtraidoResponse> Enderecos,
-        VinculoExtracaoResponse? Vinculo);
+        VinculoExtracaoResponse? Vinculo,
+        OpenRouterUsoResponse? Uso);
     public sealed record UploadDocumentoResponse(
         Guid Id,
         bool DocumentoExistente,
