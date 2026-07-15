@@ -1,4 +1,5 @@
 using ExtratorDocumentos.Application.Dtos.Documentos;
+using ExtratorDocumentos.Application.Services;
 using ExtratorDocumentos.Application.Services.Processamento;
 using ExtratorDocumentos.Domain;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,16 @@ using System.Text.Json;
 [Route("api/[controller]")]
 public sealed class DocumentosController : ControllerBase
 {
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<DocumentoResponse>>> Listar(
+        [FromQuery] DocumentoQuery filtros,
+        [FromServices] DocumentoService documentos,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await documentos.ListarAsync(filtros, cancellationToken);
+        return Ok(resultado);
+    }
+
     [HttpPost]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(104_857_600)]

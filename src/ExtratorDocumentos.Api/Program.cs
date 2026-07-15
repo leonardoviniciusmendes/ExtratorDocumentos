@@ -1,5 +1,6 @@
 using System.Transactions;
 using ExtratorDocumentos.Api.Services;
+using ExtratorDocumentos.Application.Services;
 using ExtratorDocumentos.Application.Jobs;
 using ExtratorDocumentos.Application.Services.Extracao;
 using ExtratorDocumentos.Application.Services.Processamento;
@@ -38,6 +39,7 @@ builder.Services.AddHangfire(config => config
 builder.Services.AddHangfireServer();
 
 builder.Services.AddScoped<LocalStorageService>();
+builder.Services.AddScoped<DocumentoService>();
 builder.Services.AddHttpClient<OpenAiDocumentoExtracaoProvider>(client =>
 {
     var baseUrl = builder.Configuration["DocumentExtraction:OpenAI:BaseUrl"] ?? "https://api.openai.com/v1/";
