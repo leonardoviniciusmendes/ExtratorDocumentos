@@ -58,7 +58,8 @@ namespace ExtratorDocumentos.Application.Services.Extracao
                         new { id = "file-parser", pdf = new { engine = "mistral-ocr" } },
                         new { id = "response-healing" }
                     }
-                    : new object[] { new { id = "response-healing" } }
+                    : new object[] { new { id = "response-healing" } },
+                usage = new { include = true }
             };
 
             using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions");
@@ -84,8 +85,89 @@ namespace ExtratorDocumentos.Application.Services.Extracao
             var result = JsonSerializer.Deserialize<ExtracaoDocumentoResult>(outputText,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (result != null)
-                result.DadosBrutosJson = outputText;
+            {
+                var uso = ObterUso(doc.RootElement, payload.model);
+                result.ProvedorUso = uso.Provedor;
+                result.ModeloUso = uso.Modelo;
+                result.RequisicaoIdUso = uso.RequisicaoId;
+                result.TokensEntrada = uso.TokensEntrada;
+                result.TokensSaida = uso.TokensSaida;
+                result.TokensTotais = uso.TokensTotais;
+                result.CustoUsd = uso.CustoUsd;
+                result.DadosBrutosJson = AdicionarUsoAoJson(outputText, uso);
+            }
             return result;
         }
+
+        private static UsoOpenRouter ObterUso(JsonElement root, string modelo)
+        {
+            var usage = root.TryGetProperty("usage", out var usageElement)
+                ? usageElement : default;
+            return new UsoOpenRouter(
+                "OpenRouter",
+                root.TryGetProperty("model", out var modelElement) &&
+                modelElement.ValueKind == JsonValueKind.String
+                    ? modelElement.GetString()
+                    : modelo,
+                root.TryGetProperty("id", out var idElement) &&
+                idElement.ValueKind == JsonValueKind.String
+                    ? idElement.GetString()
+                    : null,
+                ObterInt(usage, "prompt_tokens"),
+                ObterInt(usage, "completion_tokens"),
+                ObterInt(usage, "total_tokens"),
+                ObterDecimal(usage, "cost"));
+        }
+
+        private static string AdicionarUsoAoJson(string outputText, UsoOpenRouter uso)
+        {
+            using var doc = JsonDocument.Parse(outputText);
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteStartObject();
+                foreach (var property in doc.RootElement.EnumerateObject())
+                    property.WriteTo(writer);
+
+                writer.WritePropertyName("_uso");
+                JsonSerializer.Serialize(writer, new
+                {
+                    provedor = uso.Provedor,
+                    modelo = uso.Modelo,
+                    requisicaoId = uso.RequisicaoId,
+                    tokensEntrada = uso.TokensEntrada,
+                    tokensSaida = uso.TokensSaida,
+                    tokensTotais = uso.TokensTotais,
+                    custoUsd = uso.CustoUsd
+                });
+                writer.WriteEndObject();
+            }
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+
+        private static int? ObterInt(JsonElement item, string nome) =>
+            item.ValueKind == JsonValueKind.Object &&
+            item.TryGetProperty(nome, out var valor) &&
+            valor.ValueKind == JsonValueKind.Number &&
+            valor.TryGetInt32(out var numero)
+                ? numero
+                : null;
+
+        private static decimal? ObterDecimal(JsonElement item, string nome) =>
+            item.ValueKind == JsonValueKind.Object &&
+            item.TryGetProperty(nome, out var valor) &&
+            valor.ValueKind == JsonValueKind.Number &&
+            valor.TryGetDecimal(out var numero)
+                ? numero
+                : null;
+
+        private sealed record UsoOpenRouter(
+            string Provedor,
+            string? Modelo,
+            string? RequisicaoId,
+            int? TokensEntrada,
+            int? TokensSaida,
+            int? TokensTotais,
+            decimal? CustoUsd);
     }
 }

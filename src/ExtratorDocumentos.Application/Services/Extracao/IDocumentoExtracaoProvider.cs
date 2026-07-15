@@ -32,8 +32,6 @@ namespace ExtratorDocumentos.Application.Services.Extracao
         public string? Cnpj { get; set; }
         public string? RazaoSocial { get; set; }
         public string? NomeFantasia { get; set; }
-        public string? Endereco { get; set; }
-        public string? NomeTitularEndereco { get; set; }
         public string? Logradouro { get; set; }
         public string? NumeroEndereco { get; set; }
         public string? Complemento { get; set; }
@@ -51,6 +49,14 @@ namespace ExtratorDocumentos.Application.Services.Extracao
         public string? Folha { get; set; }
         public string? Termo { get; set; }
         public decimal Confianca { get; set; }
+        public string? TextoExtraido { get; set; }
         public string DadosBrutosJson { get; set; } = "{}";
+        public string? ProvedorUso { get; set; }
+        public string? ModeloUso { get; set; }
+        public string? RequisicaoIdUso { get; set; }
+        public int? TokensEntrada { get; set; }
+        public int? TokensSaida { get; set; }
+        public int? TokensTotais { get; set; }
+        public decimal? CustoUsd { get; set; }
     }
 }

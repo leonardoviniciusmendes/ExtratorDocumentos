@@ -24,6 +24,8 @@ packages/
 
 ## Local document storage
 storage/
+!src/ExtratorDocumentos.Infrastructure/Storage/
+!src/ExtratorDocumentos.Infrastructure/Storage/*.cs
 
 ## Docker
 .docker-config/

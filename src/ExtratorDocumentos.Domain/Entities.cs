@@ -6,18 +6,20 @@ namespace ExtratorDocumentos.Domain
         CertidaoNascimento = 5, CertidaoCasamento = 6, ContratoSocial = 7,
         CartaoCNPJ = 8, ContaAgua = 9, ContaTelefone = 10, ContaInternet = 11,
         ContaGas = 12, FaturaCartaoCredito = 13, ExtratoBancario = 14,
-        ContratoLocacao = 15, IPTU = 16, Outros = 99
+        ContratoLocacao = 15, IPTU = 16, Elegibilidade = 17,
+        FichaAssociativa = 18, DocumentoOficialComSelfie = 19, Outros = 99
     }
 
     public enum StatusDocumento
     {
         Pendente = 0, Disponivel = 1, EmAnalise = 2, Aprovado = 3,
-        Rejeitado = 4, Excluido = 5, Erro = 6
+        Rejeitado = 4, Excluido = 5, Erro = 6, Concluido = 7, Processando = 8
     }
 
     public enum StatusExtracao
     {
-        Pendente = 0, Processando = 1, Processado = 2, RevisaoManual = 3, Erro = 4
+        Pendente = 0, Processando = 1, Processado = 2, RevisaoManual = 3, Erro = 4,
+        Concluido = 5, ConcluidoComAlertas = 6, RequerRevisao = 7
     }
 
     public enum TipoParentesco
@@ -26,10 +28,25 @@ namespace ExtratorDocumentos.Domain
         Socio = 5, RepresentanteLegal = 6, Outros = 99
     }
 
+    public enum PapelDocumento
+    {
+        Titular = 0,
+        Dependente = 1,
+        Empresa = 2
+    }
+
     public class Documento
     {
         public Guid Id { get; set; } = Guid.NewGuid();
-        public string Cpf { get; set; } = string.Empty;
+        public string? Cpf { get; set; }
+        public string? CpfDependente { get; set; }
+        public string? Cnpj { get; set; }
+        public string NomeOriginal { get; set; } = string.Empty;
+        public string HashSha256 { get; set; } = string.Empty;
+        public string Extensao { get; set; } = string.Empty;
+        public string MimeType { get; set; } = "application/octet-stream";
+        public long TamanhoBytes { get; set; }
+        public PapelDocumento Papel { get; set; } = PapelDocumento.Titular;
         public TipoParentesco TipoParentesco { get; set; } = TipoParentesco.Titular;
         public TipoDocumento Tipo { get; set; }
         public StatusDocumento Status { get; set; } = StatusDocumento.Pendente;
@@ -42,9 +59,20 @@ namespace ExtratorDocumentos.Domain
         public StatusExtracao StatusExtracao { get; set; } = StatusExtracao.Pendente;
         public string? ErroExtracao { get; set; }
         public DateTime? ExtraidoEm { get; set; }
-        public IdentificacaoExtraida? Identificacao { get; set; }
+        public TipoDocumento? TipoDocumentoIdentificado { get; set; }
+        public decimal? ConfiancaIdentificacao { get; set; }
+        public string? ResultadoIdentificacaoJson { get; set; }
+        public string? ResultadoExtracaoJson { get; set; }
+        public string? ModeloIdentificacao { get; set; }
+        public string? ModeloExtracao { get; set; }
+        public string VersaoExtrator { get; set; } = "1";
+        public string VersaoSchema { get; set; } = "1";
+        public DateTime? ProcessadoEm { get; set; }
+        public string? ErroProcessamento { get; set; }
         public ICollection<DocumentoVersao> Versoes { get; set; } = new List<DocumentoVersao>();
         public ICollection<DocumentoHistorico> Historico { get; set; } = new List<DocumentoHistorico>();
+        public ICollection<UsoOpenRouter> UsosOpenRouter { get; set; } = new List<UsoOpenRouter>();
+        public ICollection<DocumentoExtracao> Extracoes { get; set; } = new List<DocumentoExtracao>();
     }
 
     public class DocumentoVersao
@@ -74,55 +102,69 @@ namespace ExtratorDocumentos.Domain
         public DateTime Data { get; set; } = DateTime.UtcNow;
     }
 
-    public class IdentificacaoExtraida
+    public class OpenRouterModelo
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Nome { get; set; } = string.Empty;
+        public string Objetivo { get; set; } = string.Empty;
+        public string? Descricao { get; set; }
+        public int? ContextoTokens { get; set; }
+        public bool AceitaArquivo { get; set; }
+        public bool AceitaImagem { get; set; }
+        public bool SaidaTexto { get; set; }
+        public bool SuportaJson { get; set; }
+        public bool SuportaStructuredOutputs { get; set; }
+        public decimal? PrecoEntradaPorMilhaoTokens { get; set; }
+        public decimal? PrecoSaidaPorMilhaoTokens { get; set; }
+        public bool Disponivel { get; set; } = true;
+        public bool Ativo { get; set; } = true;
+        public bool Permitido { get; set; } = true;
+        public bool Bloqueado { get; set; }
+        public int PrioridadeIdentificacao { get; set; } = 100;
+        public int PrioridadeExtracao { get; set; } = 100;
+        public DateTime PrimeiroVistoEm { get; set; } = DateTime.UtcNow;
+        public DateTime UltimoVistoEm { get; set; } = DateTime.UtcNow;
+        public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+    }
+
+    public class UsoOpenRouter
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid DocumentoId { get; set; }
         public Documento? Documento { get; set; }
-        public Guid DocumentoVersaoId { get; set; }
-        public DocumentoVersao? DocumentoVersao { get; set; }
-        public string? NomeCompleto { get; set; }
-        public string? Cpf { get; set; }
-        public string? Rg { get; set; }
-        public string? OrgaoEmissor { get; set; }
-        public string? UfEmissao { get; set; }
-        public DateTime? DataNascimento { get; set; }
-        public string? Naturalidade { get; set; }
-        public string? Nacionalidade { get; set; }
-        public string? NomeMae { get; set; }
-        public string? NomePai { get; set; }
-        public string? NumeroCnh { get; set; }
-        public string? CategoriaCnh { get; set; }
-        public DateTime? ValidadeCnh { get; set; }
-        public DateTime? DataPrimeiraHabilitacao { get; set; }
-        public DateTime? DataEmissao { get; set; }
-        public string? LocalEmissao { get; set; }
-        public string? NumeroRenach { get; set; }
-        public string? ObservacoesCnh { get; set; }
-        public string? Cnpj { get; set; }
-        public string? RazaoSocial { get; set; }
-        public string? NomeFantasia { get; set; }
-        public string? Endereco { get; set; }
-        public string? NomeTitularEndereco { get; set; }
-        public string? Logradouro { get; set; }
-        public string? NumeroEndereco { get; set; }
-        public string? Complemento { get; set; }
-        public string? Bairro { get; set; }
-        public string? Cidade { get; set; }
-        public string? Estado { get; set; }
-        public string? Cep { get; set; }
-        public string? EmissorDocumento { get; set; }
-        public string? NumeroCliente { get; set; }
-        public string? NumeroInstalacao { get; set; }
-        public string? MesReferencia { get; set; }
-        public DateTime? DataVencimento { get; set; }
-        public string? MatriculaCertidao { get; set; }
-        public string? Livro { get; set; }
-        public string? Folha { get; set; }
-        public string? Termo { get; set; }
-        public decimal Confianca { get; set; }
-        public string Provedor { get; set; } = string.Empty;
-        public string DadosBrutosJson { get; set; } = "{}";
+        public Guid? DocumentoExtracaoId { get; set; }
+        public DocumentoExtracao? DocumentoExtracao { get; set; }
+        public string ModeloId { get; set; } = string.Empty;
+        public string Objetivo { get; set; } = string.Empty;
+        public int? TokensEntrada { get; set; }
+        public int? TokensSaida { get; set; }
+        public decimal? Custo { get; set; }
+        public long DuracaoMs { get; set; }
+        public bool Sucesso { get; set; }
+        public string? Erro { get; set; }
+        public string? RequestId { get; set; }
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    }
+
+    public class DocumentoExtracao
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid DocumentoId { get; set; }
+        public Documento? Documento { get; set; }
+        public string TipoDocumentoSolicitado { get; set; } = string.Empty;
+        public string? TipoDocumentoIdentificado { get; set; }
+        public string VersaoSchema { get; set; } = string.Empty;
+        public string VersaoExtrator { get; set; } = string.Empty;
+        public StatusExtracao Status { get; set; } = StatusExtracao.Pendente;
+        public decimal? Confianca { get; set; }
+        public string? ResultadoJson { get; set; }
+        public string? ModeloIdentificacao { get; set; }
+        public string? ModeloExtracao { get; set; }
+        public string? ErroCodigo { get; set; }
+        public string? ErroMensagem { get; set; }
+        public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+        public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+        public DateTime? ProcessadoEm { get; set; }
+        public ICollection<UsoOpenRouter> UsosOpenRouter { get; set; } = new List<UsoOpenRouter>();
     }
 }

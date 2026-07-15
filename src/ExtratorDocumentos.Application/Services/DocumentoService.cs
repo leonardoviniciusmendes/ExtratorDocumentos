@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ExtratorDocumentos.Application.Services
 {
+    public sealed record CriarDocumentoResult(Documento Documento, bool DocumentoExistente);
+
     public class DocumentoService
     {
         private readonly AppDbContext _db;
@@ -18,23 +20,50 @@ namespace ExtratorDocumentos.Application.Services
             _storage = storage;
         }
 
-        public async Task<Documento> CriarAsync(string cpf, TipoParentesco tipoParentesco,
+        public async Task<CriarDocumentoResult> CriarAsync(string? cpf, string? cpfDependente,
+            string? cnpj, PapelDocumento papel, TipoParentesco tipoParentesco,
             TipoDocumento tipo, string? observacoes,
             string nomeArquivo, string tipoConteudo, Stream arquivo, CancellationToken cancellationToken)
         {
-            var cpfNormalizado = NormalizarCpf(cpf);
+            if (!Enum.IsDefined(papel))
+                throw new ArgumentException("Papel deve ser titular, dependente ou empresa.",
+                    nameof(papel));
+            var cpfNormalizado = NormalizarCpfOpcional(cpf);
+            if ((EhDocumentoEndereco(tipo) || papel == PapelDocumento.Dependente) &&
+                cpfNormalizado == null)
+                throw new ArgumentException(
+                    "CPF do titular e obrigatorio para upload de endereco ou dependente.",
+                    nameof(cpf));
+
+            var cpfDependenteNormalizado = papel == PapelDocumento.Dependente
+                ? NormalizarDocumentoOpcional(cpfDependente, 11, nameof(cpfDependente)) : null;
+            var cnpjNormalizado = papel == PapelDocumento.Empresa
+                ? NormalizarDocumento(cnpj, 14, nameof(cnpj)) : null;
+            var arquivoEmMemoria = await CopiarArquivoAsync(arquivo, cancellationToken);
+            var hash = CalcularHash(arquivoEmMemoria);
+
+            var existente = await BuscarDocumentoExistenteAsync(
+                cpfNormalizado, cpfDependenteNormalizado, cnpjNormalizado, papel,
+                tipoParentesco, tipo, hash, cancellationToken);
+            if (existente != null)
+                return new CriarDocumentoResult(existente, true);
+
             var documento = new Documento
             {
                 Cpf = cpfNormalizado,
+                CpfDependente = cpfDependenteNormalizado,
+                Cnpj = cnpjNormalizado,
+                Papel = papel,
                 TipoParentesco = tipoParentesco,
                 Tipo = tipo,
                 Observacoes = observacoes
             };
             _db.Documentos.Add(documento);
-            await AdicionarVersaoInternaAsync(documento, nomeArquivo, tipoConteudo, arquivo, cancellationToken);
+            await AdicionarVersaoInternaAsync(
+                documento, nomeArquivo, tipoConteudo, arquivoEmMemoria, hash, cancellationToken);
             _db.DocumentoHistoricos.Add(new DocumentoHistorico { DocumentoId = documento.Id, Acao = "Upload", StatusNovo = documento.Status, Observacao = observacoes });
             await _db.SaveChangesAsync(cancellationToken);
-            return documento;
+            return new CriarDocumentoResult(documento, false);
         }
 
         public async Task<DocumentoVersao?> AdicionarVersaoAsync(Guid id, string nomeArquivo,
@@ -49,7 +78,10 @@ namespace ExtratorDocumentos.Application.Services
             documento.StatusExtracao = StatusExtracao.Pendente;
             documento.ErroExtracao = null;
             documento.AtualizadoEm = DateTime.UtcNow;
-            var versao = await AdicionarVersaoInternaAsync(documento, nomeArquivo, tipoConteudo, arquivo, cancellationToken);
+            var arquivoEmMemoria = await CopiarArquivoAsync(arquivo, cancellationToken);
+            var versao = await AdicionarVersaoInternaAsync(
+                documento, nomeArquivo, tipoConteudo, arquivoEmMemoria,
+                CalcularHash(arquivoEmMemoria), cancellationToken);
             _db.DocumentoHistoricos.Add(new DocumentoHistorico { DocumentoId = documento.Id, Acao = "NovaVersao", StatusNovo = documento.Status, Observacao = observacao, Usuario = usuario });
             await _db.SaveChangesAsync(cancellationToken);
             return versao;
@@ -118,24 +150,54 @@ namespace ExtratorDocumentos.Application.Services
         }
 
         private async Task<DocumentoVersao> AdicionarVersaoInternaAsync(Documento documento, string nomeArquivo,
-            string tipoConteudo, Stream arquivo, CancellationToken cancellationToken)
+            string tipoConteudo, MemoryStream arquivo, string hash, CancellationToken cancellationToken)
         {
-            await using var memoria = new MemoryStream();
-            await arquivo.CopyToAsync(memoria, cancellationToken);
-            var hash = Convert.ToHexString(SHA256.HashData(memoria.ToArray())).ToLowerInvariant();
-            var extensao = Path.GetExtension(Path.GetFileName(nomeArquivo));
-            var chave = $"{documento.Cpf}/{documento.Id:N}/v{documento.VersaoAtual}{extensao}";
-            memoria.Position = 0;
-            await _storage.SalvarAsync(chave, memoria, cancellationToken);
+            var chave = StorageKeyBuilder.CriarChaveOriginal(
+                documento, documento.VersaoAtual, nomeArquivo);
+            arquivo.Position = 0;
+            await _storage.SalvarAsync(chave, arquivo, cancellationToken);
             var versao = new DocumentoVersao { Versao = documento.VersaoAtual, NomeArquivo = Path.GetFileName(nomeArquivo),
                 TipoConteudo = string.IsNullOrWhiteSpace(tipoConteudo) ? "application/octet-stream" : tipoConteudo,
-                TamanhoBytes = memoria.Length, HashSha256 = hash, ChaveStorage = chave };
+                TamanhoBytes = arquivo.Length, HashSha256 = hash, ChaveStorage = chave };
             documento.Versoes.Add(versao);
             return versao;
         }
 
+        private Task<Documento?> BuscarDocumentoExistenteAsync(string? cpf, string? cpfDependente,
+            string? cnpj, PapelDocumento papel, TipoParentesco tipoParentesco, TipoDocumento tipo,
+            string hash, CancellationToken cancellationToken) =>
+            _db.Documentos.Include(x => x.Versoes)
+                .Where(x => !x.Excluido &&
+                    x.Cpf == cpf &&
+                    x.CpfDependente == cpfDependente &&
+                    x.Cnpj == cnpj &&
+                    x.Papel == papel &&
+                    x.TipoParentesco == tipoParentesco &&
+                    x.Tipo == tipo &&
+                    x.Versoes.Any(v => v.HashSha256 == hash))
+                .OrderByDescending(x => x.CriadoEm)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        private static async Task<MemoryStream> CopiarArquivoAsync(
+            Stream arquivo, CancellationToken cancellationToken)
+        {
+            var memoria = new MemoryStream();
+            await arquivo.CopyToAsync(memoria, cancellationToken);
+            memoria.Position = 0;
+            return memoria;
+        }
+
+        private static string CalcularHash(MemoryStream arquivo)
+        {
+            arquivo.Position = 0;
+            var hash = Convert.ToHexString(SHA256.HashData(arquivo)).ToLowerInvariant();
+            arquivo.Position = 0;
+            return hash;
+        }
+
         private static DocumentoResponse ToResponse(Documento x) =>
-            new(x.Id, x.Cpf, x.TipoParentesco, x.Tipo, x.Status, x.Observacoes, x.VersaoAtual,
+            new(x.Id, x.Cpf, x.CpfDependente, x.Cnpj, x.Papel,
+                x.TipoParentesco, x.Tipo, x.Status, x.Observacoes, x.VersaoAtual,
                 x.Excluido, x.CriadoEm, x.AtualizadoEm, x.StatusExtracao,
                 x.ErroExtracao, x.ExtraidoEm);
 
@@ -146,5 +208,47 @@ namespace ExtratorDocumentos.Application.Services
                 throw new ArgumentException("CPF deve conter 11 digitos.", nameof(cpf));
             return normalizado;
         }
+
+        private static string? NormalizarCpfOpcional(string? cpf)
+        {
+            if (string.IsNullOrWhiteSpace(cpf)) return null;
+            return NormalizarCpf(cpf);
+        }
+
+        private static string NormalizarDocumento(string? valor, int tamanho, string campo)
+        {
+            var normalizado = new string((valor ?? string.Empty).Where(char.IsDigit).ToArray());
+            if (normalizado.Length != tamanho)
+                throw new ArgumentException(
+                    $"{campo} deve conter {tamanho} digitos.", campo);
+            return normalizado;
+        }
+
+        private static string? NormalizarDocumentoOpcional(string? valor, int tamanho, string campo)
+        {
+            if (string.IsNullOrWhiteSpace(valor) ||
+                valor.Equals("null", StringComparison.OrdinalIgnoreCase) ||
+                valor.Equals("undefined", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var normalizado = new string(valor.Where(char.IsDigit).ToArray());
+            if (normalizado.Length == 0) return null;
+            if (normalizado.Length != tamanho)
+                throw new ArgumentException(
+                    $"{campo} deve conter {tamanho} digitos.", campo);
+            return normalizado;
+        }
+
+        private static bool EhDocumentoEndereco(TipoDocumento tipo) =>
+            tipo is TipoDocumento.ComprovanteResidencia
+                or TipoDocumento.ContaLuz
+                or TipoDocumento.ContaAgua
+                or TipoDocumento.ContaTelefone
+                or TipoDocumento.ContaInternet
+                or TipoDocumento.ContaGas
+                or TipoDocumento.FaturaCartaoCredito
+                or TipoDocumento.ExtratoBancario
+                or TipoDocumento.ContratoLocacao
+                or TipoDocumento.IPTU;
     }
 }

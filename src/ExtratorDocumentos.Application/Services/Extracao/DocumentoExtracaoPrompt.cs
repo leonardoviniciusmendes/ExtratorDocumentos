@@ -11,16 +11,16 @@ namespace ExtratorDocumentos.Application.Services.Extracao
             Campos: nomeCompleto, cpf, rg, orgaoEmissor, ufEmissao, dataNascimento,
             naturalidade, nacionalidade, nomeMae, nomePai, numeroCnh, categoriaCnh,
             validadeCnh, dataPrimeiraHabilitacao, dataEmissao, localEmissao,
-            numeroRenach, observacoesCnh, cnpj, razaoSocial, nomeFantasia, endereco,
-            nomeTitularEndereco, logradouro, numeroEndereco, complemento, bairro,
+            numeroRenach, observacoesCnh, cnpj, razaoSocial, nomeFantasia,
+            logradouro, numeroEndereco, complemento, bairro,
             cidade, estado, cep, emissorDocumento, numeroCliente, numeroInstalacao,
             mesReferencia, dataVencimento,
-            matriculaCertidao, livro, folha, termo, confianca.
+            matriculaCertidao, livro, folha, termo, textoExtraido, confianca.
+            textoExtraido deve conter a transcricao integral legivel do documento.
             Para CNH, numeroCnh e o numero de registro. Nao confunda com CPF,
             numero do formulario, espelho ou RENACH. Extraia frente e verso quando existirem.
             Para comprovantes de endereco, separe o endereco completo nos campos estruturados.
             CEP deve conter somente 8 digitos. mesReferencia deve preservar mes e ano exibidos.
-            O titular do endereco pode ser diferente da pessoa relacionada ao documento.
             """;
     }
 }

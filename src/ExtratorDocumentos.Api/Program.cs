@@ -1,10 +1,9 @@
 using System.Transactions;
 using ExtratorDocumentos.Api.Services;
 using ExtratorDocumentos.Application.Jobs;
-using ExtratorDocumentos.Application.Services;
 using ExtratorDocumentos.Application.Services.Extracao;
+using ExtratorDocumentos.Application.Services.Processamento;
 using ExtratorDocumentos.Infrastructure.Data;
-using ExtratorDocumentos.Infrastructure.Repositories;
 using ExtratorDocumentos.Infrastructure.Storage;
 using Hangfire;
 using Hangfire.MySql;
@@ -38,9 +37,7 @@ builder.Services.AddHangfire(config => config
     })));
 builder.Services.AddHangfireServer();
 
-builder.Services.AddScoped<DocumentoRepository>();
 builder.Services.AddScoped<LocalStorageService>();
-builder.Services.AddScoped<DocumentoService>();
 builder.Services.AddHttpClient<OpenAiDocumentoExtracaoProvider>(client =>
 {
     var baseUrl = builder.Configuration["DocumentExtraction:OpenAI:BaseUrl"] ?? "https://api.openai.com/v1/";
@@ -54,12 +51,46 @@ builder.Services.AddHttpClient<OpenRouterDocumentoExtracaoProvider>(client =>
         ?? "https://openrouter.ai/api/v1/";
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
 });
+builder.Services.AddHttpClient<OpenRouterModelosService>(client =>
+{
+    var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
+        ?? "https://openrouter.ai/api/v1/";
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+});
+builder.Services.AddHttpClient<OpenRouterContaService>(client =>
+{
+    var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
+        ?? "https://openrouter.ai/api/v1/";
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+});
 builder.Services.AddScoped<IDocumentoExtracaoProvider>(
     sp => sp.GetRequiredService<OpenRouterDocumentoExtracaoProvider>());
-builder.Services.AddScoped<DocumentoExtracaoService>();
-builder.Services.AddScoped<ProcessarDocumentosPendentesJob>();
+builder.Services.AddScoped<IArquivoAnaliseService, ArquivoAnaliseService>();
+builder.Services.AddScoped<OpenRouterModelSelector>();
+builder.Services.AddScoped<IOpenRouterModelSelector>(
+    sp => sp.GetRequiredService<OpenRouterModelSelector>());
+builder.Services.AddScoped<IOpenRouterModelCandidateSelector>(
+    sp => sp.GetRequiredService<OpenRouterModelSelector>());
+builder.Services.AddScoped<IProcessadorDocumentoIdentificacaoService,
+    ProcessadorDocumentoIdentificacaoService>();
+builder.Services.AddHttpClient<IOpenRouterPipelineClient, OpenRouterPipelineClient>(client =>
+{
+    var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
+        ?? "https://openrouter.ai/api/v1/";
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+});
+builder.Services.AddScoped<AtualizarOpenRouterModelosJob>();
 builder.Services.AddScoped<HangfireJobScheduler>();
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -73,8 +104,12 @@ using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<HangfireJobScheduler>().RegistrarJobs();
 }
 
-BackgroundJob.Enqueue<HangfireJobScheduler>(
-    scheduler => scheduler.ExecutarProcessamentoAsync());
+if (builder.Configuration.GetValue<bool?>("OpenRouter:AtualizacaoModelos:ExecutarAoIniciar") ??
+    builder.Configuration.GetValue<bool?>("Jobs:OpenRouterModelos:ExecutarAoIniciar") ?? true)
+{
+    BackgroundJob.Enqueue<HangfireJobScheduler>(
+        scheduler => scheduler.ExecutarAtualizacaoOpenRouterModelosAsync());
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -83,6 +118,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("Frontend");
 app.UseAuthorization();
 app.UseHangfireDashboard("/hangfire");
 app.MapHealthChecks("/health");
