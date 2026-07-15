@@ -4,5 +4,4 @@
   <Project Path="ExtratorDocumentos.Domain/ExtratorDocumentos.Domain.csproj" />
   <Project Path="ExtratorDocumentos.Infrastructure/ExtratorDocumentos.Infrastructure.csproj" />
   <Project Path="ExtratorDocumentos.Tests/ExtratorDocumentos.Tests.csproj" />
-  <Project Path="ExtratorDocumentos.Worker/ExtratorDocumentos.Worker.csproj" />
 </Solution>

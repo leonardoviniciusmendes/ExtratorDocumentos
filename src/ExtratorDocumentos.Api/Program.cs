@@ -40,19 +40,6 @@ builder.Services.AddHangfireServer();
 
 builder.Services.AddScoped<LocalStorageService>();
 builder.Services.AddScoped<DocumentoService>();
-builder.Services.AddHttpClient<OpenAiDocumentoExtracaoProvider>(client =>
-{
-    var baseUrl = builder.Configuration["DocumentExtraction:OpenAI:BaseUrl"] ?? "https://api.openai.com/v1/";
-    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
-});
-builder.Services.AddScoped<IDocumentoExtracaoProvider>(
-    sp => sp.GetRequiredService<OpenAiDocumentoExtracaoProvider>());
-builder.Services.AddHttpClient<OpenRouterDocumentoExtracaoProvider>(client =>
-{
-    var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
-        ?? "https://openrouter.ai/api/v1/";
-    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
-});
 builder.Services.AddHttpClient<OpenRouterModelosService>(client =>
 {
     var baseUrl = builder.Configuration["DocumentExtraction:OpenRouter:BaseUrl"]
@@ -65,8 +52,6 @@ builder.Services.AddHttpClient<OpenRouterContaService>(client =>
         ?? "https://openrouter.ai/api/v1/";
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
 });
-builder.Services.AddScoped<IDocumentoExtracaoProvider>(
-    sp => sp.GetRequiredService<OpenRouterDocumentoExtracaoProvider>());
 builder.Services.AddScoped<IArquivoAnaliseService, ArquivoAnaliseService>();
 builder.Services.AddScoped<OpenRouterModelSelector>();
 builder.Services.AddScoped<IOpenRouterModelSelector>(
